@@ -9,16 +9,28 @@ const PROMPT=['You configure a chess variant engine. Output ONLY JSON: {"config"
 'Piece letters: K king, Q queen, R rook, B bishop, N knight, P pawn. Config fields: winPiece (letter; capturing it wins; there is NO check or checkmate), promoteTo (letter), pawnDouble (bool), shield (object like {"K":"R"}: K cannot be captured while friendly R is orthogonally adjacent), pieces.<letter>: slide ("orth"|"diag"|"all" or array of [dy,dx] vectors), max (slide distance 1-8), jumps ("knight" or array of [dy,dx] vectors), jumpLimit (jumps per game per side), noCapture (array of letters it cannot capture). Pawns are fixed (forward 1, optional double, diagonal capture); for pawns only noCapture applies.',
 'In "config" output ONLY what the player changed: top-level fields they changed, and for every piece they changed its COMPLETE definition (omit unchanged pieces). Rules you cannot express (castling, en passant, new pieces, turn-based effects, board changes) go to "unsupported" as short phrases. "summary" is 1-2 short sentences on what changed, in the requested language.',
 'A piece definition REPLACES the old one entirely, so repeat every movement the piece keeps. Examples: "слон ходит как конь" -> {"config":{"pieces":{"B":{"jumps":"knight"}}},"summary":"Слон ходит конём.","unsupported":[]}; "ладья ходит как слон и конь, но максимум на 3 клетки" -> {"config":{"pieces":{"R":{"slide":"diag","max":3,"jumps":"knight"}}},"summary":"...","unsupported":[]}; "ферзь не бьёт пешки" -> {"config":{"pieces":{"Q":{"slide":"all","max":8,"noCapture":["P"]}}},"summary":"...","unsupported":[]}; "пешка ходит как ферзь" -> {"config":{"pieces":{"P":{"slide":"all","max":8}}},"summary":"...","unsupported":[]}.'].join('\n');
+const MODELS=[process.env.GROQ_MODEL,'openai/gpt-oss-20b','llama-3.1-8b-instant','llama-3.3-70b-versatile'].filter((m,i,a)=>m&&a.indexOf(m)===i);
+let good=null;
 async function ask(text,lang){
- const r=await fetch(GURL,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+GROQ},signal:AbortSignal.timeout(8000),
-  body:JSON.stringify({model:MODEL,temperature:0,max_tokens:700,response_format:{type:'json_object'},messages:[{role:'system',content:PROMPT},{role:'user',content:'Summary language: '+(lang==='en'?'English':'Russian')+'\nPlayer rules:\n'+text}]})});
- if(!r.ok)throw Error('groq '+r.status+' '+(await r.text().catch(()=>'')).slice(0,160));
- const j=JSON.parse((await r.json()).choices[0].message.content),c=E.sanitize(j.config);
- for(const k of Object.keys(E.STD.pieces))if(!c.pieces[k])c.pieces[k]=E.STD.pieces[k];
- return{config:c,summary:String(j.summary||'').slice(0,400),unsupported:(Array.isArray(j.unsupported)?j.unsupported:[]).slice(0,6).map(x=>String(x).slice(0,80))}}
+ const order=good?[good,...MODELS.filter(m=>m!==good)]:MODELS;let last='';
+ for(const model of order){
+  const oss=/gpt-oss/.test(model);
+  for(const json of[true,false]){
+   const r=await fetch(GURL,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+GROQ},signal:AbortSignal.timeout(12000),
+    body:JSON.stringify({model,temperature:0,max_tokens:oss?1500:700,...(oss?{reasoning_effort:'low'}:{}),...(json?{response_format:{type:'json_object'}}:{}),
+     messages:[{role:'system',content:PROMPT},{role:'user',content:'Summary language: '+(lang==='en'?'English':'Russian')+'\nPlayer rules:\n'+text}]})});
+   if(r.ok){
+    const raw=String((await r.json()).choices[0].message.content||''),j=JSON.parse(raw.slice(raw.indexOf('{'),raw.lastIndexOf('}')+1)),c=E.sanitize(j.config);
+    good=model;for(const k of Object.keys(E.STD.pieces))if(!c.pieces[k])c.pieces[k]=E.STD.pieces[k];
+    return{config:c,summary:String(j.summary||'').slice(0,400),unsupported:(Array.isArray(j.unsupported)?j.unsupported:[]).slice(0,6).map(x=>String(x).slice(0,80))}}
+   const body=(await r.text().catch(()=>'')).slice(0,160);last=model+' '+r.status+' '+body;
+   if(r.status===401||r.status===429)throw Error('groq '+last);
+   if(r.status===400&&json&&/response_format|json/i.test(body))continue;
+   break}}
+ throw Error('groq '+last)}
 const srv=http.createServer((q,s)=>{
  const path=String(q.url||'').split('?')[0].replace(/\/+$/,'')||'/';
- if(q.method==='GET'&&path==='/version'){s.writeHead(200,CORS);return s.end('chess-server v3 · groq key: '+(GROQ?'yes':'NO')+' · model: '+MODEL)}
+ if(q.method==='GET'&&path==='/version'){s.writeHead(200,CORS);return s.end('chess-server v4 · groq key: '+(GROQ?'yes':'NO')+' · models: '+MODELS.join(' > ')+' · working: '+(good||'not yet used'))}
  if(q.method==='OPTIONS'){s.writeHead(204,CORS);return s.end()}
  if(q.method==='POST'&&path==='/parse'){
   const ip=(q.headers['x-forwarded-for']||q.socket.remoteAddress||'').split(',')[0].trim(),fail=(c,err)=>{s.writeHead(c,{...CORS,'content-type':'application/json'});s.end(JSON.stringify({err:err||''}))},done=r=>{s.writeHead(200,{...CORS,'content-type':'application/json'});s.end(JSON.stringify(r))};
