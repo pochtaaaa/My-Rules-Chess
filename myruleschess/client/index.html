@@ -81,7 +81,7 @@ if(typeof module!=='undefined')module.exports=E;else window.Chess=E;
 
 </script>
 <script>
-const SERVER='wss://CHANGE-ME.onrender.com';
+const SERVER='wss://my-rules-chess.onrender.com/';
 const E=window.Chess,STD=E.STD,vec=E.vec;
 const $=id=>document.getElementById(id);
 let cfg=STD,S=E.newGame(cfg),mode='local',me='w',ws=null,room=null,sel=null,mv=[],opp=true,rq=false,tries=0,sumTxt='',lang=/^ru|^be|^kk|^uk|^uz/.test(navigator.language||'')?'ru':'en';
@@ -131,11 +131,11 @@ function parseRules(text){
  return{c,ok,bad};
 }
 /*P2*/
-const TX={ru:{wake:'Сервер просыпается, подожди до 30 секунд…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
+const TX={ru:{wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
 ph:'Пиши правила словами, фразы через запятую или точку. Например: слон ходит как конь, ферзь не может бить пешки, у короля один телепорт, пешка превращается в ладью, побеждает тот, кто съест ферзя',
 help:'«слон ходит как конь» · «ладья ходит как слон и конь» · «ферзь не может бить пешки» · «слон ходит максимум на 3 клетки» · «слон ходит по прямой» (или по диагонали, во все стороны) · «у короля один телепорт» (прыжок конём, можно «два раза») · «пешка превращается в ладью» · «побеждает тот, кто съест ферзя» · «король под защитой ладьи» (щит) · «пешки не ходят на две клетки».',
 nc:'{a} не бьёт: {b}',jp:'{a}: прыжок конём{n}',jn:' ({n} р. за партию)',pr:'пешка превращается в: {a}',wn:'победа за того, кто съест: {a}',sh:'{a} под щитом: {b} рядом',db:'двойной ход пешки: {v}',lk:'{a} ходит как {b}',dr:'{a} ходит: {d}',mx:'{a}: максимум {n} кл.',none:'Ничего не понял. Загляни в «Что я понимаю».',bad:'Не понял:',okh:'Применено:',skip:'Не понял (пропустил):'},
-en:{wake:'Server is waking up, wait up to 30 seconds…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
+en:{wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
 ph:'Write your rules in words, separate phrases with commas or periods. E.g.: bishop moves like knight, queen cannot capture pawns, king has one teleport, pawn promotes to rook, wins who captures queen',
 help:'"bishop moves like knight" · "rook moves like bishop and knight" · "queen cannot capture pawns" · "bishop moves max 3 squares" · "bishop moves straight" (or diagonal, any direction) · "king has one teleport" (knight jump, "twice" works) · "pawn promotes to rook" · "wins who captures queen" · "king is protected by rook" (shield) · "pawns cannot move two squares".',
 nc:'{a} cannot capture: {b}',jp:'{a}: knight jump{n}',jn:' ({n}x per game)',pr:'pawn promotes to: {a}',wn:'win by capturing: {a}',sh:'{a} is shielded by adjacent {b}',db:'pawn double step: {v}',lk:'{a} moves like {b}',dr:'{a} moves: {d}',mx:'{a}: max {n} squares',none:'Did not understand anything. See "What I understand".',bad:'Not understood:',okh:'Applied:',skip:'Not understood (skipped):'}};
@@ -187,7 +187,7 @@ function connect(first){
   else if(m.t==='state'){S=m.s;cfg=S.cfg;opp=m.opp;rq=m.rq;if(m.sum)$('sum').textContent=m.sum;sel=null;mv=[]}
   else if(m.t==='err'){$('err').textContent=t(m.c);if(m.c==='nf'||m.c==='full')leave();return}
   draw()};
- w.onclose=()=>{if(ws!==w||mode!=='online')return;draw();if(room&&tries++<12)setTimeout(()=>{if(ws===w)connect({t:'resume',code:room.code,token:room.token})},1500+tries*500)};
+ w.onclose=()=>{if(ws!==w||mode!=='online')return;draw();const nx=room?{t:'resume',code:room.code,token:room.token}:first;if(tries++<20)setTimeout(()=>{if(ws===w)connect(nx)},Math.min(1500+tries*500,4000))};
  draw()}
 function applyLang(){document.documentElement.lang=lang;document.title=t('title');document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));$('nlt').placeholder=t('ph');$('cd').placeholder=t('codeph');draw()}
 $('nlb').onclick=async()=>{
