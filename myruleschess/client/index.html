@@ -131,11 +131,11 @@ function parseRules(text){
  return{c,ok,bad};
 }
 /*P2*/
-const TX={ru:{wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
+const TX={ru:{code4:'Введи 4-значный код комнаты',wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
 ph:'Пиши правила словами, фразы через запятую или точку. Например: слон ходит как конь, ферзь не может бить пешки, у короля один телепорт, пешка превращается в ладью, побеждает тот, кто съест ферзя',
 help:'«слон ходит как конь» · «ладья ходит как слон и конь» · «ферзь не может бить пешки» · «слон ходит максимум на 3 клетки» · «слон ходит по прямой» (или по диагонали, во все стороны) · «у короля один телепорт» (прыжок конём, можно «два раза») · «пешка превращается в ладью» · «побеждает тот, кто съест ферзя» · «король под защитой ладьи» (щит) · «пешки не ходят на две клетки».',
 nc:'{a} не бьёт: {b}',jp:'{a}: прыжок конём{n}',jn:' ({n} р. за партию)',pr:'пешка превращается в: {a}',wn:'победа за того, кто съест: {a}',sh:'{a} под щитом: {b} рядом',db:'двойной ход пешки: {v}',lk:'{a} ходит как {b}',dr:'{a} ходит: {d}',mx:'{a}: максимум {n} кл.',none:'Ничего не понял. Загляни в «Что я понимаю».',bad:'Не понял:',okh:'Применено:',skip:'Не понял (пропустил):'},
-en:{wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
+en:{code4:'Enter the 4-character room code',wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
 ph:'Write your rules in words, separate phrases with commas or periods. E.g.: bishop moves like knight, queen cannot capture pawns, king has one teleport, pawn promotes to rook, wins who captures queen',
 help:'"bishop moves like knight" · "rook moves like bishop and knight" · "queen cannot capture pawns" · "bishop moves max 3 squares" · "bishop moves straight" (or diagonal, any direction) · "king has one teleport" (knight jump, "twice" works) · "pawn promotes to rook" · "wins who captures queen" · "king is protected by rook" (shield) · "pawns cannot move two squares".',
 nc:'{a} cannot capture: {b}',jp:'{a}: knight jump{n}',jn:' ({n}x per game)',pr:'pawn promotes to: {a}',wn:'win by capturing: {a}',sh:'{a} is shielded by adjacent {b}',db:'pawn double step: {v}',lk:'{a} moves like {b}',dr:'{a} moves: {d}',mx:'{a}: max {n} squares',none:'Did not understand anything. See "What I understand".',bad:'Not understood:',okh:'Applied:',skip:'Not understood (skipped):'}};
@@ -176,8 +176,8 @@ function botMove(){
   if(s>bs){bs=s;best=[r,c,y,x]}}
  if(best){E.play(S,...best);draw()}}
 const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
-const save=()=>{try{localStorage.setItem('chessRoom',JSON.stringify(room))}catch(e){}};
-function leave(){const w=ws;ws=null;if(w)try{w.close()}catch(e){}room=null;mode='local';me='w';opp=true;rq=false;try{localStorage.removeItem('chessRoom')}catch(e){}newLocal()}
+const save=()=>{try{sessionStorage.setItem('chessRoom',JSON.stringify(room))}catch(e){}};
+function leave(){const w=ws;ws=null;if(w)try{w.close()}catch(e){}room=null;mode='local';me='w';opp=true;rq=false;try{sessionStorage.removeItem('chessRoom')}catch(e){}newLocal()}
 function connect(first){
  mode='online';let w;try{w=new WebSocket(SERVER)}catch(e){$('err').textContent=t('off');return}
  ws=w;
@@ -204,11 +204,11 @@ $('nlb').onclick=async()=>{
  $('sum').textContent=sumTxt+(bad.length?'\n\n'+t('skip')+'\n• '+bad.join('\n• '):'');newLocal()};
 $('rs').onclick=()=>{if(mode==='online')send({t:'rematch'});else newLocal()};
 $('bLoc').onclick=()=>{if(mode==='online')leave();else newLocal()};
-$('bCr').onclick=()=>{if(mode==='online')return;connect({t:'create',cfg,sum:sumTxt})};
-$('bJn').onclick=()=>{const k=$('cd').value.trim().toUpperCase();if(mode==='online'||k.length<4)return;connect({t:'join',code:k})};
+$('bCr').onclick=()=>{if(mode==='online')leave();$('err').textContent='';connect({t:'create',cfg,sum:sumTxt})};
+$('bJn').onclick=()=>{const k=$('cd').value.trim().toUpperCase();if(k.length<4){$('err').textContent=t('code4');return}if(mode==='online')leave();$('err').textContent='';connect({t:'join',code:k})};
 $('b').oncontextmenu=e=>e.preventDefault();
 applyLang();
 try{fetch(SERVER.replace(/^ws/,'http')+'/',{mode:'no-cors'}).catch(()=>{})}catch(e){}
-try{const sv=JSON.parse(localStorage.getItem('chessRoom')||'null');if(sv&&sv.code){room=sv;connect({t:'resume',code:sv.code,token:sv.token})}}catch(e){}
+try{const sv=JSON.parse(sessionStorage.getItem('chessRoom')||'null');if(sv&&sv.code){room=sv;connect({t:'resume',code:sv.code,token:sv.token})}}catch(e){}
 if(typeof YaGames!=='undefined')YaGames.init().then(y=>{try{const l=y.environment.i18n.lang;lang=/^(ru|be|kk|uk|uz)/.test(l)?'ru':'en'}catch(e){}applyLang();try{y.features.LoadingAPI.ready()}catch(e){}}).catch(()=>{});
 </script></body></html>
