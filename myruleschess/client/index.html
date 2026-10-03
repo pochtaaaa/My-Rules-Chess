@@ -195,8 +195,8 @@ $('nlb').onclick=async()=>{
  if(mode==='online'){$('err').textContent=t('locked');return}const txt=$('nlt').value.trim();if(!txt)return;
  const bt=$('nlb'),lab=bt.textContent;bt.disabled=true;bt.textContent='…';$('err').textContent='';
  let c,ok,bad,ai=false,aiErr='';
- try{const r=await fetch(SERVER.replace(/^ws/,'http')+'/parse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:txt,lang}),signal:AbortSignal.timeout?AbortSignal.timeout(9000):undefined});
-  const j=await r.json().catch(()=>({}));if(!r.ok||!j.config||!j.config.pieces){aiErr=j.err||('HTTP '+r.status);throw 0}
+ try{const r=await fetch(SERVER.replace(/^ws/,'http').replace(/\/+$/,'')+'/parse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:txt,lang}),signal:AbortSignal.timeout?AbortSignal.timeout(9000):undefined});
+  const j=await r.json().catch(()=>({}));if(!r.ok||!j.config||!j.config.pieces){aiErr=j.err||(r.ok?'на сервере старая версия без /parse, обнови server.js':'HTTP '+r.status);throw 0}
   c=j.config;ok=[j.summary||t('okh')];bad=j.unsupported||[];ai=true}
  catch(e){if(!aiErr)aiErr='network/timeout';const p=parseRules(txt);c=p.c;ok=p.ok;bad=p.bad}
  bt.disabled=false;bt.textContent=lab;if(aiErr)$('err').textContent=t('aifail')+aiErr;
@@ -209,7 +209,7 @@ $('bCr').onclick=()=>{if(mode==='online')leave();$('err').textContent='';connect
 $('bJn').onclick=()=>{const k=$('cd').value.trim().toUpperCase();if(k.length<4){$('err').textContent=t('code4');return}if(mode==='online')leave();$('err').textContent='';connect({t:'join',code:k})};
 $('b').oncontextmenu=e=>e.preventDefault();
 applyLang();
-try{fetch(SERVER.replace(/^ws/,'http')+'/',{mode:'no-cors'}).catch(()=>{})}catch(e){}
+try{fetch(SERVER.replace(/^ws/,'http').replace(/\/+$/,'')+'/',{mode:'no-cors'}).catch(()=>{})}catch(e){}
 try{const sv=JSON.parse(sessionStorage.getItem('chessRoom')||'null');if(sv&&sv.code){room=sv;connect({t:'resume',code:sv.code,token:sv.token})}}catch(e){}
 if(typeof YaGames!=='undefined')YaGames.init().then(y=>{try{const l=y.environment.i18n.lang;lang=/^(ru|be|kk|uk|uz)/.test(l)?'ru':'en'}catch(e){}applyLang();try{y.features.LoadingAPI.ready()}catch(e){}}).catch(()=>{});
 </script></body></html>

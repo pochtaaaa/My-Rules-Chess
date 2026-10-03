@@ -17,8 +17,10 @@ async function ask(text,lang){
  for(const k of Object.keys(E.STD.pieces))if(!c.pieces[k])c.pieces[k]=E.STD.pieces[k];
  return{config:c,summary:String(j.summary||'').slice(0,400),unsupported:(Array.isArray(j.unsupported)?j.unsupported:[]).slice(0,6).map(x=>String(x).slice(0,80))}}
 const srv=http.createServer((q,s)=>{
+ const path=String(q.url||'').split('?')[0].replace(/\/+$/,'')||'/';
+ if(q.method==='GET'&&path==='/version'){s.writeHead(200,CORS);return s.end('chess-server v3 · groq key: '+(GROQ?'yes':'NO')+' · model: '+MODEL)}
  if(q.method==='OPTIONS'){s.writeHead(204,CORS);return s.end()}
- if(q.method==='POST'&&q.url==='/parse'){
+ if(q.method==='POST'&&path==='/parse'){
   const ip=(q.headers['x-forwarded-for']||q.socket.remoteAddress||'').split(',')[0].trim(),fail=(c,err)=>{s.writeHead(c,{...CORS,'content-type':'application/json'});s.end(JSON.stringify({err:err||''}))},done=r=>{s.writeHead(200,{...CORS,'content-type':'application/json'});s.end(JSON.stringify(r))};
   let b='';q.on('data',d=>{b+=d;if(b.length>2000)q.destroy()});
   q.on('end',async()=>{try{const m=JSON.parse(b),text=String(m.text||'').slice(0,400);if(!text.trim())return fail(400,'empty');
