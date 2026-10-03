@@ -54,7 +54,7 @@ function shielded(S,r,c,q){const by=(S.cfg.shield||{})[q.t];if(!by)return false;
 function movesOf(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.cfg.pieces[p.t]||{};
  const can=(q,y,x)=>q.c!==p.c&&!(pc.noCapture||[]).includes(q.t)&&!shielded(S,y,x,q);
  const add=(y,x)=>{if(!In(y,x))return false;const q=bd[y][x];if(!q){o.push([y,x]);return true}if(can(q,y,x))o.push([y,x]);return false};
- if(p.t==='P'){const d=p.c==='w'?-1:1,st=p.c==='w'?6:1;
+ if(p.t==='P'&&!pc.slide&&!pc.jumps){const d=p.c==='w'?-1:1,st=p.c==='w'?6:1;
   if(In(r+d,c)&&!bd[r+d][c]){o.push([r+d,c]);if(S.cfg.pawnDouble!==false&&r===st&&!bd[r+2*d][c])o.push([r+2*d,c])}
   [-1,1].forEach(s=>{if(In(r+d,c+s)){const q=bd[r+d][c+s];if(q&&q.c===en&&can(q,r+d,c+s))o.push([r+d,c+s])}});return o}
  vec(pc.slide).forEach(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(!add(r+a*i,c+b*i))break});
@@ -111,9 +111,9 @@ function parseRules(text){
    const pr=/защищает|защищают|protects/.test(t),a=pr?p[1]:p[0],b=pr?p[0]:p[1];
    c.shield[a]=b;ok.push(f('sh',{a:NM[a],b:NM[b]}));return}
   let hit=false;
-  if(X==='P'){
-   if(/двойн|на две клет|на 2 клет|two squares|double/.test(t)){c.pawnDouble=!/не |без|нельзя|no |cannot|can't/.test(t);ok.push(f('db',{v:TX[lang][c.pawnDouble?'yes':'no']}));hit=true}
-  }else{
+  let dbl=false;
+  if(X==='P'&&/двойн|на две клет|на 2 клет|two squares|double/.test(t)){dbl=true;c.pawnDouble=!/не |без|нельзя|no |cannot|can't/.test(t);ok.push(f('db',{v:TX[lang][c.pawnDouble?'yes':'no']}));hit=true}
+  {
    const a=pc();
    if(/(?:ходит|ходят|двигается|двигаются|moves?)\s+(?:и\s+)?(?:как|like)/.test(t)&&rest.length){
     let sl=[],jm=[],mx=0;
@@ -124,18 +124,18 @@ function parseRules(text){
    const d=/диагонал|diagonal/.test(t)?'diag':/по прям|горизонтал|вертикал|straight|orthogonal|ортогонал/.test(t)?'orth':/во все сторон|any direction|all directions|в любом направлени/.test(t)?'all':null;
    if(d){a.slide=d;if(!a.max)a.max=8;ok.push(f('dr',{a:NM[X],d}));hit=true}
    const mm=t.match(/(\d+|один|одну|одна|одно|два|две|три|четыре|пять|шесть|семь)\s*(?:клет|squares?|cells?)/);
-   if(mm){a.max=num(mm[1]);ok.push(f('mx',{a:NM[X],n:a.max}));hit=true}
+   if(mm&&!dbl){a.max=num(mm[1]);ok.push(f('mx',{a:NM[X],n:a.max}));hit=true}
   }
   if(!hit)bad.push(t);
  });
  return{c,ok,bad};
 }
 /*P2*/
-const TX={ru:{code4:'Введи 4-значный код комнаты',wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
+const TX={ru:{lv:'выйти из комнаты',locked:'В комнате правила менять нельзя. Выйди из комнаты, примени правила и создай новую.',aifail:'ИИ недоступен: ',code4:'Введи 4-значный код комнаты',wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
 ph:'Пиши правила словами, фразы через запятую или точку. Например: слон ходит как конь, ферзь не может бить пешки, у короля один телепорт, пешка превращается в ладью, побеждает тот, кто съест ферзя',
 help:'«слон ходит как конь» · «ладья ходит как слон и конь» · «ферзь не может бить пешки» · «слон ходит максимум на 3 клетки» · «слон ходит по прямой» (или по диагонали, во все стороны) · «у короля один телепорт» (прыжок конём, можно «два раза») · «пешка превращается в ладью» · «побеждает тот, кто съест ферзя» · «король под защитой ладьи» (щит) · «пешки не ходят на две клетки».',
 nc:'{a} не бьёт: {b}',jp:'{a}: прыжок конём{n}',jn:' ({n} р. за партию)',pr:'пешка превращается в: {a}',wn:'победа за того, кто съест: {a}',sh:'{a} под щитом: {b} рядом',db:'двойной ход пешки: {v}',lk:'{a} ходит как {b}',dr:'{a} ходит: {d}',mx:'{a}: максимум {n} кл.',none:'Ничего не понял. Загляни в «Что я понимаю».',bad:'Не понял:',okh:'Применено:',skip:'Не понял (пропустил):'},
-en:{code4:'Enter the 4-character room code',wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
+en:{lv:'leave room',locked:'Rules cannot be changed inside a room. Leave, apply rules, then create a new room.',aifail:'AI unavailable: ',code4:'Enter the 4-character room code',wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
 ph:'Write your rules in words, separate phrases with commas or periods. E.g.: bishop moves like knight, queen cannot capture pawns, king has one teleport, pawn promotes to rook, wins who captures queen',
 help:'"bishop moves like knight" · "rook moves like bishop and knight" · "queen cannot capture pawns" · "bishop moves max 3 squares" · "bishop moves straight" (or diagonal, any direction) · "king has one teleport" (knight jump, "twice" works) · "pawn promotes to rook" · "wins who captures queen" · "king is protected by rook" (shield) · "pawns cannot move two squares".',
 nc:'{a} cannot capture: {b}',jp:'{a}: knight jump{n}',jn:' ({n}x per game)',pr:'pawn promotes to: {a}',wn:'win by capturing: {a}',sh:'{a} is shielded by adjacent {b}',db:'pawn double step: {v}',lk:'{a} moves like {b}',dr:'{a} moves: {d}',mx:'{a}: max {n} squares',none:'Did not understand anything. See "What I understand".',bad:'Not understood:',okh:'Applied:',skip:'Not understood (skipped):'}};
@@ -159,6 +159,7 @@ function draw(){
   d.onclick=()=>click(r,c);B.appendChild(d)}
  $('st').textContent=status();
  $('bot').parentNode.style.display=mode==='online'?'none':'';
+ $('bLoc').textContent=t(mode==='online'?'lv':'loc');
 }
 function newLocal(){S=E.newGame(cfg);sel=null;mv=[];draw()}
 function click(r,c){
@@ -191,19 +192,19 @@ function connect(first){
  draw()}
 function applyLang(){document.documentElement.lang=lang;document.title=t('title');document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));$('nlt').placeholder=t('ph');$('cd').placeholder=t('codeph');draw()}
 $('nlb').onclick=async()=>{
- if(mode==='online')return;const txt=$('nlt').value.trim();if(!txt)return;
+ if(mode==='online'){$('err').textContent=t('locked');return}const txt=$('nlt').value.trim();if(!txt)return;
  const bt=$('nlb'),lab=bt.textContent;bt.disabled=true;bt.textContent='…';$('err').textContent='';
- let c,ok,bad,ai=false;
+ let c,ok,bad,ai=false,aiErr='';
  try{const r=await fetch(SERVER.replace(/^ws/,'http')+'/parse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:txt,lang}),signal:AbortSignal.timeout?AbortSignal.timeout(9000):undefined});
-  if(!r.ok)throw 0;const j=await r.json();if(!j.config||!j.config.pieces)throw 0;
+  const j=await r.json().catch(()=>({}));if(!r.ok||!j.config||!j.config.pieces){aiErr=j.err||('HTTP '+r.status);throw 0}
   c=j.config;ok=[j.summary||t('okh')];bad=j.unsupported||[];ai=true}
- catch(e){const p=parseRules(txt);c=p.c;ok=p.ok;bad=p.bad}
- bt.disabled=false;bt.textContent=lab;
+ catch(e){if(!aiErr)aiErr='network/timeout';const p=parseRules(txt);c=p.c;ok=p.ok;bad=p.bad}
+ bt.disabled=false;bt.textContent=lab;if(aiErr)$('err').textContent=t('aifail')+aiErr;
  if(!ok.length){$('sum').textContent=t('none')+(bad.length?'\n'+t('bad')+' '+bad.join(' | '):'');return}
  cfg=c;sumTxt=(ai?'✨ ':'')+t('okh')+'\n• '+ok.join('\n• ');
  $('sum').textContent=sumTxt+(bad.length?'\n\n'+t('skip')+'\n• '+bad.join('\n• '):'');newLocal()};
 $('rs').onclick=()=>{if(mode==='online')send({t:'rematch'});else newLocal()};
-$('bLoc').onclick=()=>{if(mode==='online')leave();else newLocal()};
+$('bLoc').onclick=()=>{if(mode==='online'){send({t:'leave'});leave()}else newLocal()};
 $('bCr').onclick=()=>{if(mode==='online')leave();$('err').textContent='';connect({t:'create',cfg,sum:sumTxt})};
 $('bJn').onclick=()=>{const k=$('cd').value.trim().toUpperCase();if(k.length<4){$('err').textContent=t('code4');return}if(mode==='online')leave();$('err').textContent='';connect({t:'join',code:k})};
 $('b').oncontextmenu=e=>e.preventDefault();

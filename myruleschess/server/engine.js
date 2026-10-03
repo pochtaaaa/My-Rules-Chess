@@ -11,7 +11,7 @@ function shielded(S,r,c,q){const by=(S.cfg.shield||{})[q.t];if(!by)return false;
 function movesOf(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.cfg.pieces[p.t]||{};
  const can=(q,y,x)=>q.c!==p.c&&!(pc.noCapture||[]).includes(q.t)&&!shielded(S,y,x,q);
  const add=(y,x)=>{if(!In(y,x))return false;const q=bd[y][x];if(!q){o.push([y,x]);return true}if(can(q,y,x))o.push([y,x]);return false};
- if(p.t==='P'){const d=p.c==='w'?-1:1,st=p.c==='w'?6:1;
+ if(p.t==='P'&&!pc.slide&&!pc.jumps){const d=p.c==='w'?-1:1,st=p.c==='w'?6:1;
   if(In(r+d,c)&&!bd[r+d][c]){o.push([r+d,c]);if(S.cfg.pawnDouble!==false&&r===st&&!bd[r+2*d][c])o.push([r+2*d,c])}
   [-1,1].forEach(s=>{if(In(r+d,c+s)){const q=bd[r+d][c+s];if(q&&q.c===en&&can(q,r+d,c+s))o.push([r+d,c+s])}});return o}
  vec(pc.slide).forEach(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(!add(r+a*i,c+b*i))break});
