@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chess</title>
+<script src="/sdk.js"></script>
+<style>
+:root{--bg:#f4f4f2;--fg:#1a1a1a;--l:#e8e8e3;--d:#b9b9b0;--hi:#6b9b6b;--sel:#d4c26a;--mut:#777;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161616;--fg:#e6e6e6;--l:#3a3a38;--d:#272726;--hi:#5d8a5d;--sel:#8a7d34;--mut:#999}}
+:root[data-theme="dark"]{--bg:#161616;--fg:#e6e6e6;--l:#3a3a38;--d:#272726;--hi:#5d8a5d;--sel:#8a7d34;--mut:#999}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:16px}
+h1{font-size:18px;font-weight:600;margin:0 0 4px}
+#st{margin:6px 0 10px;color:var(--mut);min-height:22px}
+#b{display:grid;grid-template-columns:repeat(8,1fr);width:min(94vw,480px)}
+.c{aspect-ratio:1/1;overflow:hidden;line-height:1;display:flex;align-items:center;justify-content:center;font-size:min(9vw,46px);cursor:pointer;user-select:none;position:relative}
+.c.l{background:var(--l)}.c.d{background:var(--d)}
+.c.s{background:var(--sel)}
+.c.m::after{content:"";width:28%;height:28%;border-radius:50%;background:var(--hi);position:absolute;opacity:.85}
+.c.m.x::after{width:86%;height:86%;background:none;border:3px solid var(--hi)}
+.w{color:#fff;text-shadow:0 0 2px #000,0 0 2px #000,0 0 1px #000}.k{color:#111;text-shadow:0 0 1px #aaa}
+.bar{margin:12px 0;display:flex;gap:12px;align-items:center;color:var(--mut)}
+button{font:inherit;background:none;color:var(--fg);border:1px solid var(--mut);padding:4px 12px;cursor:pointer}
+details{max-width:480px;width:94vw;color:var(--mut)}summary{cursor:pointer}
+textarea{width:100%;height:300px;box-sizing:border-box;background:none;color:var(--fg);border:1px solid var(--mut);font:12px/1.4 ui-monospace,monospace;padding:8px;margin-top:6px}#err{color:#c55;min-height:20px}
+*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}textarea{-webkit-user-select:text;user-select:text}
+input{-webkit-user-select:text;user-select:text;background:none;color:var(--fg);border:1px solid var(--mut);padding:4px 8px;font:inherit;width:64px;text-transform:uppercase}
+</style></head><body>
+<h1 data-i18n="title"></h1>
+<div id="st"></div>
+<div id="b"></div>
+<div class="bar" id="lob"><button id="bLoc" data-i18n="loc"></button><button id="bCr" data-i18n="crt"></button><input type="text" id="cd" maxlength="4"><button id="bJn" data-i18n="jn2"></button></div>
+<div class="bar">
+<label><input type="checkbox" id="bot" checked> <span data-i18n="bot"></span></label>
+<button id="rs" data-i18n="again"></button>
+</div>
+<div id="nl" style="max-width:480px;width:94vw">
+<textarea id="nlt" style="height:90px"></textarea>
+<button id="nlb" style="margin-top:6px" data-i18n="apply"></button>
+<div id="sum" style="white-space:pre-wrap;color:var(--mut);margin-top:6px"></div>
+<details style="margin-top:6px;color:var(--mut)"><summary data-i18n="hq"></summary><p data-i18n="help"></p></details>
+</div>
+<div id="err"></div>
+<script>
+(function(){
+const DIR={orth:[[1,0],[-1,0],[0,1],[0,-1]],diag:[[1,1],[1,-1],[-1,1],[-1,-1]],knight:[[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]]};DIR.all=[...DIR.orth,...DIR.diag];
+const vec=v=>typeof v==='string'?(DIR[v]||[]):(Array.isArray(v)?v:[]);
+const STD={winPiece:'K',promoteTo:'Q',pawnDouble:true,shield:{},pieces:{K:{slide:'all',max:1},Q:{slide:'all',max:8},R:{slide:'orth',max:8},B:{slide:'diag',max:8},N:{jumps:'knight'}}};
+const In=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+function newGame(cfg){const row='RNBQKBNR',bd=Array.from({length:8},()=>Array(8).fill(null));
+ for(let c=0;c<8;c++){bd[0][c]={t:row[c],c:'b'};bd[1][c]={t:'P',c:'b'};bd[6][c]={t:'P',c:'w'};bd[7][c]={t:row[c],c:'w'}}
+ return{cfg,bd,turn:'w',jc:{},over:false,winner:null}}
+function shielded(S,r,c,q){const by=(S.cfg.shield||{})[q.t];if(!by)return false;
+ return DIR.orth.some(([a,b])=>{const p=In(r+a,c+b)&&S.bd[r+a][c+b];return p&&p.c===q.c&&p.t===by})}
+function movesOf(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.cfg.pieces[p.t]||{};
+ const can=(q,y,x)=>q.c!==p.c&&!(pc.noCapture||[]).includes(q.t)&&!shielded(S,y,x,q);
+ const add=(y,x)=>{if(!In(y,x))return false;const q=bd[y][x];if(!q){o.push([y,x]);return true}if(can(q,y,x))o.push([y,x]);return false};
+ if(p.t==='P'){const d=p.c==='w'?-1:1,st=p.c==='w'?6:1;
+  if(In(r+d,c)&&!bd[r+d][c]){o.push([r+d,c]);if(S.cfg.pawnDouble!==false&&r===st&&!bd[r+2*d][c])o.push([r+2*d,c])}
+  [-1,1].forEach(s=>{if(In(r+d,c+s)){const q=bd[r+d][c+s];if(q&&q.c===en&&can(q,r+d,c+s))o.push([r+d,c+s])}});return o}
+ vec(pc.slide).forEach(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(!add(r+a*i,c+b*i))break});
+ if(!pc.jumpLimit||(S.jc[p.c+p.t]||0)<pc.jumpLimit)vec(pc.jumps).forEach(([a,b])=>add(r+a,c+b));
+ return o}
+function play(S,r,c,y,x){const p=S.bd[r][c],q=S.bd[y][x],pc=S.cfg.pieces[p.t]||{};
+ if(pc.jumpLimit&&vec(pc.jumps).some(([a,b])=>a===y-r&&b===x-c)&&!vec(pc.slide).some(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(a*i===y-r&&b*i===x-c)return true;return false}))S.jc[p.c+p.t]=(S.jc[p.c+p.t]||0)+1;
+ S.bd[y][x]=p;S.bd[r][c]=null;if(p.t==='P'&&(y===0||y===7))p.t=S.cfg.promoteTo||'N';
+ if(q&&q.t===S.cfg.winPiece){S.over=true;S.winner=p.c;return}
+ S.turn=S.turn==='w'?'b':'w'}
+function sanitize(c){const L='KQRBNP',ok=x=>typeof x==='string'&&x.length===1&&L.includes(x);c=c||{};
+ const o={winPiece:ok(c.winPiece)?c.winPiece:'K',promoteTo:ok(c.promoteTo)&&c.promoteTo!=='P'?c.promoteTo:'Q',pawnDouble:c.pawnDouble!==false,shield:{},pieces:{}};
+ for(const k in(c.shield||{}))if(ok(k)&&ok(c.shield[k]))o.shield[k]=c.shield[k];
+ const sv=v=>typeof v==='string'?(DIR[v]?v:undefined):Array.isArray(v)?v.slice(0,16).filter(a=>Array.isArray(a)&&a.length===2&&a.every(n=>Number.isInteger(n)&&Math.abs(n)<8)):undefined;
+ for(const k of L){const p=(c.pieces||{})[k];if(!p||typeof p!=='object')continue;const q={};
+  const sl=sv(p.slide),jm=sv(p.jumps);if(sl)q.slide=sl;if(jm)q.jumps=jm;
+  if(Number.isInteger(p.max))q.max=Math.min(8,Math.max(1,p.max));
+  if(Number.isInteger(p.jumpLimit))q.jumpLimit=Math.min(64,Math.max(1,p.jumpLimit));
+  if(Array.isArray(p.noCapture))q.noCapture=p.noCapture.filter(ok).slice(0,6);o.pieces[k]=q}
+ return o}
+const E={STD,DIR,vec,newGame,movesOf,play,sanitize};
+if(typeof module!=='undefined')module.exports=E;else window.Chess=E;
+})();
+
+</script>
+<script>
+const SERVER='wss://CHANGE-ME.onrender.com';
+const E=window.Chess,STD=E.STD,vec=E.vec;
+const $=id=>document.getElementById(id);
+let cfg=STD,S=E.newGame(cfg),mode='local',me='w',ws=null,room=null,sel=null,mv=[],opp=true,rq=false,tries=0,sumTxt='',lang=/^ru|^be|^kk|^uk|^uz/.test(navigator.language||'')?'ru':'en';
+/*P1*/
+const PN=/королев\p{L}*|корол[ьяюеё]\p{L}*|king|ферз\p{L}*|queen|ладь\p{L}*|rook|слон\p{L}*|bishop|кон(?:ь|я|ю|ём|ем|ей|и|е)(?!\p{L})|knight|пешк\p{L}*|pawn/giu;
+const pl=w=>{w=w.toLowerCase();return /^(королев|queen|ферз)/.test(w)?'Q':/^(корол|king)/.test(w)?'K':/^(ладь|rook)/.test(w)?'R':/^(слон|bishop)/.test(w)?'B':/^(кон|knight)/.test(w)?'N':'P'};
+const pcs=t=>(t.match(PN)||[]).map(pl);
+const NMS={ru:{K:'король',Q:'ферзь',R:'ладья',B:'слон',N:'конь',P:'пешка'},en:{K:'king',Q:'queen',R:'rook',B:'bishop',N:'knight',P:'pawn'}};const NM=new Proxy({},{get:(_,k)=>NMS[lang][k]});
+const NUM={один:1,одну:1,одна:1,одно:1,два:2,две:2,три:3,четыре:4,пять:5,шесть:6,семь:7};
+const num=w=>/^\d+$/.test(w)?+w:NUM[w];
+function parseRules(text){
+ const c=JSON.parse(JSON.stringify(STD)),ok=[],bad=[];let lastX=null;
+ text.toLowerCase().split(/[.;\n!]+|,(?!\s*(?:кто|who))|\s+но\s+|\s+but\s+|\s+а также\s+/).map(x=>x.trim()).filter(Boolean).forEach(t=>{
+  const p=pcs(t);if(p[0])lastX=p[0];const X=p[0]||lastX,rest=p.slice(1);
+  if(!X){bad.push(t);return}
+  const pc=()=>c.pieces[X]=c.pieces[X]||{};
+  if(/не\s+(?:может\s+|могут\s+)?(?:бить|бьёт|бьет|брать|берёт|берет|съедать|съедает)|(?:cannot|can't|doesn't|never)\s+(?:capture|take)/.test(t)&&rest.length){
+   pc().noCapture=[...new Set([...(pc().noCapture||[]),...rest])];ok.push(f('nc',{a:NM[X],b:rest.map(r=>NM[r]).join(', ')}));return}
+  if(/телепорт|прыж|прыг|jump|teleport/.test(t)&&X!=='P'){
+   const a=pc();a.jumps='knight';const m2=t.match(/(\d+|два|две|три)\s*(?:раз|times)/);
+   const n=m2?num(m2[1]):/\btwice\b/.test(t)?2:(/один|одн[ауо]|\bonce\b|\bone\b/.test(t)?1:0);if(n)a.jumpLimit=n;
+   ok.push(f('jp',{a:NM[X],n:n?f('jn',{n}):''}));return}
+  if(/превращ|становится|становятся|promot|turns? into|becomes?/.test(t)){
+   if(rest[0]&&rest[0]!=='P'){c.promoteTo=rest[0];ok.push(f('pr',{a:NM[rest[0]]}))}else bad.push(t);return}
+  if(/побежда|выигрыв|победа|\bwins?\b/.test(t)){if(!p[0]){bad.push(t);return}c.winPiece=X;ok.push(f('wn',{a:NM[X]}));return}
+  if(/щит|защит|shield|protect/.test(t)&&p.length>=2){
+   const pr=/защищает|защищают|protects/.test(t),a=pr?p[1]:p[0],b=pr?p[0]:p[1];
+   c.shield[a]=b;ok.push(f('sh',{a:NM[a],b:NM[b]}));return}
+  let hit=false;
+  if(X==='P'){
+   if(/двойн|на две клет|на 2 клет|two squares|double/.test(t)){c.pawnDouble=!/не |без|нельзя|no |cannot|can't/.test(t);ok.push(f('db',{v:TX[lang][c.pawnDouble?'yes':'no']}));hit=true}
+  }else{
+   const a=pc();
+   if(/(?:ходит|ходят|двигается|двигаются|moves?)\s+(?:и\s+)?(?:как|like)/.test(t)&&rest.length){
+    let sl=[],jm=[],mx=0;
+    rest.forEach(L=>{const r=STD.pieces[L]||{};sl=sl.concat(vec(r.slide));jm=jm.concat(vec(r.jumps));mx=Math.max(mx,r.max||0)});
+    const u=v=>[...new Map(v.map(x=>[x+'',x])).values()];
+    if(sl.length||jm.length){a.slide=u(sl);a.jumps=u(jm);a.max=mx||8;ok.push(f('lk',{a:NM[X],b:rest.map(r=>NM[r]).join(' + ')}));hit=true}
+   }
+   const d=/диагонал|diagonal/.test(t)?'diag':/по прям|горизонтал|вертикал|straight|orthogonal|ортогонал/.test(t)?'orth':/во все сторон|any direction|all directions|в любом направлени/.test(t)?'all':null;
+   if(d){a.slide=d;if(!a.max)a.max=8;ok.push(f('dr',{a:NM[X],d}));hit=true}
+   const mm=t.match(/(\d+|один|одну|одна|одно|два|две|три|четыре|пять|шесть|семь)\s*(?:клет|squares?|cells?)/);
+   if(mm){a.max=num(mm[1]);ok.push(f('mx',{a:NM[X],n:a.max}));hit=true}
+  }
+  if(!hit)bad.push(t);
+ });
+ return{c,ok,bad};
+}
+/*P2*/
+const TX={ru:{wake:'Сервер просыпается, подожди до 30 секунд…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'Шахматы: мои правила',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Что я понимаю',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
+ph:'Пиши правила словами, фразы через запятую или точку. Например: слон ходит как конь, ферзь не может бить пешки, у короля один телепорт, пешка превращается в ладью, побеждает тот, кто съест ферзя',
+help:'«слон ходит как конь» · «ладья ходит как слон и конь» · «ферзь не может бить пешки» · «слон ходит максимум на 3 клетки» · «слон ходит по прямой» (или по диагонали, во все стороны) · «у короля один телепорт» (прыжок конём, можно «два раза») · «пешка превращается в ладью» · «побеждает тот, кто съест ферзя» · «король под защитой ладьи» (щит) · «пешки не ходят на две клетки».',
+nc:'{a} не бьёт: {b}',jp:'{a}: прыжок конём{n}',jn:' ({n} р. за партию)',pr:'пешка превращается в: {a}',wn:'победа за того, кто съест: {a}',sh:'{a} под щитом: {b} рядом',db:'двойной ход пешки: {v}',lk:'{a} ходит как {b}',dr:'{a} ходит: {d}',mx:'{a}: максимум {n} кл.',none:'Ничего не понял. Загляни в «Что я понимаю».',bad:'Не понял:',okh:'Применено:',skip:'Не понял (пропустил):'},
+en:{wake:'Server is waking up, wait up to 30 seconds…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'Chess: my rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'What I understand',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
+ph:'Write your rules in words, separate phrases with commas or periods. E.g.: bishop moves like knight, queen cannot capture pawns, king has one teleport, pawn promotes to rook, wins who captures queen',
+help:'"bishop moves like knight" · "rook moves like bishop and knight" · "queen cannot capture pawns" · "bishop moves max 3 squares" · "bishop moves straight" (or diagonal, any direction) · "king has one teleport" (knight jump, "twice" works) · "pawn promotes to rook" · "wins who captures queen" · "king is protected by rook" (shield) · "pawns cannot move two squares".',
+nc:'{a} cannot capture: {b}',jp:'{a}: knight jump{n}',jn:' ({n}x per game)',pr:'pawn promotes to: {a}',wn:'win by capturing: {a}',sh:'{a} is shielded by adjacent {b}',db:'pawn double step: {v}',lk:'{a} moves like {b}',dr:'{a} moves: {d}',mx:'{a}: max {n} squares',none:'Did not understand anything. See "What I understand".',bad:'Not understood:',okh:'Applied:',skip:'Not understood (skipped):'}};
+const t=k=>TX[lang][k],f=(k,o)=>t(k).replace(/\{(\w+)\}/g,(_,x)=>o[x]);
+
+const G={K:'♚',Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟'},V={K:1000,Q:9,R:5,B:3,N:3,P:1};
+const cn=c=>t(c==='w'?'cw':'cb');
+function status(){
+ if(mode==='online'&&ws&&ws.readyState===0)return t('wake');
+ if(mode==='online'&&ws&&ws.readyState!==1)return t('off');
+ if(S.over)return f('win',{c:cn(S.winner)})+(rq?' · '+t('rmw'):'');
+ if(mode==='online'){if(!opp)return f('wait',{k:room?room.code:'…'});return f('turn',{c:cn(S.turn)})+' · '+f('you',{c:cn(me)})}
+ return f('turn',{c:cn(S.turn)})}
+function draw(){
+ const B=$('b');B.innerHTML='';const fl=mode==='online'&&me==='b';
+ for(let i=0;i<8;i++)for(let j=0;j<8;j++){
+  const r=fl?7-i:i,c=fl?7-j:j,d=document.createElement('div');d.className='c '+((r+c)%2?'d':'l');
+  if(sel&&sel[0]===r&&sel[1]===c)d.classList.add('s');
+  const p=S.bd[r][c];if(mv.some(m=>m[0]===r&&m[1]===c)){d.classList.add('m');if(p)d.classList.add('x')}
+  if(p){d.textContent=G[p.t];d.classList.add(p.c==='w'?'w':'k')}
+  d.onclick=()=>click(r,c);B.appendChild(d)}
+ $('st').textContent=status();
+ $('bot').parentNode.style.display=mode==='online'?'none':'';
+}
+function newLocal(){S=E.newGame(cfg);sel=null;mv=[];draw()}
+function click(r,c){
+ if(S.over)return;const on=mode==='online',bot=$('bot').checked;
+ if(on&&(!opp||!ws||ws.readyState!==1))return;
+ if(S.turn!==(on?me:(bot?'w':S.turn)))return;
+ if(sel&&mv.some(m=>m[0]===r&&m[1]===c)){
+  const m=[sel[0],sel[1],r,c];sel=null;mv=[];
+  if(on){send({t:'move',m});draw()}else{E.play(S,...m);draw();if(bot&&!S.over)setTimeout(botMove,350)}return}
+ const p=S.bd[r][c];if(p&&p.c===S.turn){sel=[r,c];mv=E.movesOf(S,r,c)}else{sel=null;mv=[]}draw()}
+function botMove(){
+ if(S.over||S.turn!=='b'||mode!=='local')return;let best=null,bs=-1e9;
+ for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(S.bd[r][c]&&S.bd[r][c].c==='b')for(const[y,x]of E.movesOf(S,r,c)){
+  let s=Math.random()*1.5;const q=S.bd[y][x];if(q)s+=V[q.t]*2;if(S.bd[r][c].t===S.cfg.winPiece&&!q)s-=1;if(S.bd[r][c].t==='P')s+=0.3;
+  if(s>bs){bs=s;best=[r,c,y,x]}}
+ if(best){E.play(S,...best);draw()}}
+const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
+const save=()=>{try{localStorage.setItem('chessRoom',JSON.stringify(room))}catch(e){}};
+function leave(){const w=ws;ws=null;if(w)try{w.close()}catch(e){}room=null;mode='local';me='w';opp=true;rq=false;try{localStorage.removeItem('chessRoom')}catch(e){}newLocal()}
+function connect(first){
+ mode='online';let w;try{w=new WebSocket(SERVER)}catch(e){$('err').textContent=t('off');return}
+ ws=w;
+ w.onopen=()=>{tries=0;$('err').textContent='';send(first)};
+ w.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}
+  if(m.t==='room'){room={code:m.code,token:m.token};me=m.color;save()}
+  else if(m.t==='state'){S=m.s;cfg=S.cfg;opp=m.opp;rq=m.rq;if(m.sum)$('sum').textContent=m.sum;sel=null;mv=[]}
+  else if(m.t==='err'){$('err').textContent=t(m.c);if(m.c==='nf'||m.c==='full')leave();return}
+  draw()};
+ w.onclose=()=>{if(ws!==w||mode!=='online')return;draw();if(room&&tries++<12)setTimeout(()=>{if(ws===w)connect({t:'resume',code:room.code,token:room.token})},1500+tries*500)};
+ draw()}
+function applyLang(){document.documentElement.lang=lang;document.title=t('title');document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));$('nlt').placeholder=t('ph');$('cd').placeholder=t('codeph');draw()}
+$('nlb').onclick=async()=>{
+ if(mode==='online')return;const txt=$('nlt').value.trim();if(!txt)return;
+ const bt=$('nlb'),lab=bt.textContent;bt.disabled=true;bt.textContent='…';$('err').textContent='';
+ let c,ok,bad,ai=false;
+ try{const r=await fetch(SERVER.replace(/^ws/,'http')+'/parse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:txt,lang}),signal:AbortSignal.timeout?AbortSignal.timeout(9000):undefined});
+  if(!r.ok)throw 0;const j=await r.json();if(!j.config||!j.config.pieces)throw 0;
+  c=j.config;ok=[j.summary||t('okh')];bad=j.unsupported||[];ai=true}
+ catch(e){const p=parseRules(txt);c=p.c;ok=p.ok;bad=p.bad}
+ bt.disabled=false;bt.textContent=lab;
+ if(!ok.length){$('sum').textContent=t('none')+(bad.length?'\n'+t('bad')+' '+bad.join(' | '):'');return}
+ cfg=c;sumTxt=(ai?'✨ ':'')+t('okh')+'\n• '+ok.join('\n• ');
+ $('sum').textContent=sumTxt+(bad.length?'\n\n'+t('skip')+'\n• '+bad.join('\n• '):'');newLocal()};
+$('rs').onclick=()=>{if(mode==='online')send({t:'rematch'});else newLocal()};
+$('bLoc').onclick=()=>{if(mode==='online')leave();else newLocal()};
+$('bCr').onclick=()=>{if(mode==='online')return;connect({t:'create',cfg,sum:sumTxt})};
+$('bJn').onclick=()=>{const k=$('cd').value.trim().toUpperCase();if(mode==='online'||k.length<4)return;connect({t:'join',code:k})};
+$('b').oncontextmenu=e=>e.preventDefault();
+applyLang();
+try{fetch(SERVER.replace(/^ws/,'http')+'/',{mode:'no-cors'}).catch(()=>{})}catch(e){}
+try{const sv=JSON.parse(localStorage.getItem('chessRoom')||'null');if(sv&&sv.code){room=sv;connect({t:'resume',code:sv.code,token:sv.token})}}catch(e){}
+if(typeof YaGames!=='undefined')YaGames.init().then(y=>{try{const l=y.environment.i18n.lang;lang=/^(ru|be|kk|uk|uz)/.test(l)?'ru':'en'}catch(e){}applyLang();try{y.features.LoadingAPI.ready()}catch(e){}}).catch(()=>{});
+</script></body></html>
