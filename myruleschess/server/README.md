@@ -1,7 +1,7 @@
 # Chess server
 1. Залей server.js, engine.js, package.json в репозиторий GitHub.
 2. Render.com -> New -> Web Service -> репозиторий. Build: `npm install`, Start: `npm start`, план Free.
-3. Environment -> добавь GROQ_API_KEY (твой ключ с console.groq.com). Необязательно: GROQ_MODEL (по умолчанию llama-3.1-8b-instant).
+3. Environment -> добавь GROQ_API_KEY (твой ключ с console.groq.com). Необязательно: GROQ_MODEL (пробуется первой; дальше сервер сам перебирает openai/gpt-oss-20b, llama-3.1-8b-instant, llama-3.3-70b-versatile). Проверка: открой /version на своём адресе.
    Без ключа игра работает, правила разбирает встроенный разборщик.
 4. Адрес https://xxx.onrender.com -> замени https на wss и вставь в index.html вместо wss://CHANGE-ME.onrender.com
 5. В консоли Яндекс Игр добавь хост xxx.onrender.com в правила CSP (нужны и https, и wss).
