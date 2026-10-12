@@ -30,7 +30,10 @@ function pseudo(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.c
    const e=S.ep;if(e&&e.by===en&&e.r===r+d&&Math.abs(e.c-c)===1&&!bd[e.r][e.c]){const vp=bd[e.pr][e.pc];if(vp&&can(vp,e.pr,e.pc))o.push([e.r,e.c])}}
  }else{
   rv(p,pc,pc.slide).forEach(([a,b])=>{for(let i=1;i<=(pc.max||8);i++){const y=r+a*i,x=c+b*i;if(!In(y,x))break;if(!add(y,x)&&!pc.leap)break}});
-  if(!pc.jumpLimit||(S.jc[p.c+p.t]||0)<pc.jumpLimit)rv(p,pc,pc.jumps).forEach(([a,b])=>add(r+a,c+b));
+  {const bj=rv(p,pc,(STD.pieces[p.t]||{}).jumps),lim=pc.jumpLimit,jl=!lim||(S.jc[p.c+p.t]||0)<lim;
+   if(pc.jumps==='any'){bj.forEach(([a,b])=>add(r+a,c+b));
+    if(jl)for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(!bd[y][x]&&!o.some(m=>m[0]===y&&m[1]===x))o.push([y,x])}
+   else{const bs=bj.map(v=>v+'');rv(p,pc,pc.jumps).forEach(([a,b])=>{if(jl||bs.includes(a+','+b))add(r+a,c+b)})}}
  }
  const sh=pc.shoot;
  if(sh&&(!sh.limit||(S.jc[p.c+p.t+'s']||0)<sh.limit))for(const[a,b]of rv(p,pc,sh.dirs||'all')){for(let i=1;i<=(sh.range||3);i++){const y=r+a*i,x=c+b*i;if(!In(y,x))break;const q=bd[y][x];if(!q)continue;if(can(q,y,x))o.push([y,x,'s']);break}}
@@ -74,7 +77,8 @@ function play(S,r,c,y,x,opt){const p=S.bd[r][c],pc=S.cfg.pieces[p.t]||{},imm=S.c
  else if(opt==='w'){const q=S.bd[y][x];S.jc[p.c+p.t+'w']=(S.jc[p.c+p.t+'w']||0)+1;S.bd[y][x]=p;S.bd[r][c]=q;p.m=true;q.m=true}
  else{
   const q=S.bd[y][x];let epc=null;
-  if(pc.jumpLimit&&vec(pc.jumps).some(([a,b])=>a===y-r&&b===x-c)&&!vec(pc.slide).some(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(a*i===y-r&&b*i===x-c)return true;return false}))S.jc[p.c+p.t]=(S.jc[p.c+p.t]||0)+1;
+  if(pc.jumpLimit&&pc.jumps){const dy=y-r,dx=x-c,hit=vs=>vs.some(([a,b])=>a===dy&&b===dx),bj=rv(p,pc,(STD.pieces[p.t]||{}).jumps),isSl=rv(p,pc,pc.slide).some(([a,b])=>{for(let i=1;i<=(pc.max||8);i++)if(a*i===dy&&b*i===dx)return true;return false});
+   if(!isSl&&!hit(bj)&&(pc.jumps==='any'?!q:hit(rv(p,pc,pc.jumps))))S.jc[p.c+p.t]=(S.jc[p.c+p.t]||0)+1}
   pawn=p.t==='P';const std=pawn&&!pc.slide&&!pc.jumps,diagOK=(S.cfg.pawnCapture||'diag')!=='straight',cr=castleRook(S,p,r,c,y,x);
   if(std&&diagOK&&!q&&x!==c&&e&&e.r===y&&e.c===x&&e.by!==p.c){epc=S.bd[e.pr][e.pc];S.bd[e.pr][e.pc]=null}
   S.bd[y][x]=p;S.bd[r][c]=null;p.m=true;
@@ -95,7 +99,7 @@ function sanitize(c){const L='KQRBNP',ok=x=>typeof x==='string'&&x.length===1&&L
  const o={winPiece:ok(c.winPiece)?c.winPiece:'K',promoteTo:c.promoteTo==='choice'?'choice':(ok(c.promoteTo)&&c.promoteTo!=='P'?c.promoteTo:'choice'),pawnDouble:c.pawnDouble!==false,castling:c.castling!==false,check:c.check!==false,immune:Array.isArray(c.immune)?c.immune.filter(ok).slice(0,6):[],pawnCapture:['diag','straight','both'].includes(c.pawnCapture)?c.pawnCapture:'diag',shield:{},pieces:{}};
  for(const k in(c.shield||{}))if(ok(k)&&ok(c.shield[k]))o.shield[k]=c.shield[k];
  const sv=v=>typeof v==='string'?(DIR[v]?v:undefined):Array.isArray(v)?v.slice(0,16).filter(a=>Array.isArray(a)&&a.length===2&&a.every(n=>Number.isInteger(n)&&Math.abs(n)<8)):undefined;
- for(const k of L){const p=(c.pieces||{})[k];if(!p||typeof p!=='object')continue;const q={};
+ for(const k of L){const p=(c.pieces||{})[k];if(!p||typeof p!=='object'){if(STD.pieces[k])o.pieces[k]=JSON.parse(JSON.stringify(STD.pieces[k]));continue}const q={};
   const sl=sv(p.slide),jm=sv(p.jumps);if(sl)q.slide=sl;if(jm)q.jumps=jm;
   if(Number.isInteger(p.max))q.max=cl(p.max,1,8);
   if(Number.isInteger(p.jumpLimit))q.jumpLimit=cl(p.jumpLimit,1,64);
