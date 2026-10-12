@@ -63,8 +63,7 @@ My-Rules-Chess/
 │   └── server/
 │       ├── server.js        # HTTP API and WebSocket rooms
 │       ├── engine.js        # Rules, moves and game endings
-│       ├── package.json
-│       └── README.md        # Server deployment notes
+│       └──package.json
 └── README.md
 ```
 
