@@ -1,57 +1,71 @@
-<!--
-  My Rules Chess
-  A browser chess sandbox where you make the rules.
--->
-
 <div align="center">
 
 # ♟ My Rules Chess
 
-### Chess, but you make the rules.
+### Chess, but you write the rules.
 
-A browser-based chess sandbox for inventing unusual chess variants in plain language.
+Type a rule in plain Russian or English — *"the knight can teleport"*, *"the queen is invulnerable"* — and it changes the game **right now**, mid-match.
 
 <p>
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-vanilla-f7df1e?logo=javascript&logoColor=222" />
   <img alt="Node.js 18+" src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white" />
-  <img alt="Languages" src="https://img.shields.io/badge/UI-English%20%7C%20Русский-5865F2" />
-  <img alt="Project status" src="https://img.shields.io/badge/status-experimental-orange" />
+  <img alt="WebSocket" src="https://img.shields.io/badge/online-WebSocket-010101?logo=socketdotio&logoColor=white" />
+  <img alt="UI languages" src="https://img.shields.io/badge/UI-English%20%7C%20Русский-5865F2" />
+  <img alt="Status" src="https://img.shields.io/badge/status-experimental-orange" />
 </p>
+
+[Idea](#-the-idea) · [Features](#-features) · [Rule ideas](#-rule-ideas) · [Run locally](#-run-locally) · [Deploy](#%EF%B8%8F-deploy) · [How it works](#%EF%B8%8F-how-it-works) · [Limitations](#%EF%B8%8F-limitations)
 
 </div>
 
+<!-- Add a screenshot or GIF here once you have one:
+<p align="center"><img src="docs/screenshot.png" width="640" alt="My Rules Chess gameplay" /></p>
+-->
+
 ---
 
-## ✨ What is it?
+## 💡 The idea
 
-**My Rules Chess** starts with familiar chess, then lets you reshape how the pieces behave. Describe a rule in Russian or English, apply it to the game, and see what happens.
+Regular chess has one fixed rulebook. **My Rules Chess** starts from the familiar game and lets the players *rewrite the rulebook while playing*.
 
-Play locally against a lightweight bot, or create an online room and invite someone with a short room code.
+Each player can describe a new rule in a sentence. An AI-assisted parser (with a built-in fallback) turns the sentence into a small JSON config, and the chess engine simply follows that config. The result feels like a duel of "spells": you play chess, and every couple of moves you get to bend the game.
 
 ## 🎮 Features
 
-- **Rules in plain language** — describe a rule instead of editing configuration by hand.
-- **Custom piece movement** — change movement directions and range, jump over pieces, or teleport to empty squares.
-- **Fantasy abilities** — add shooting, swapping with an ally, explosions on capture, immunity, or protection from nearby pieces.
-- **Change the basics** — adjust pawn captures, promotion, castling, check and checkmate, and which piece decides the win.
-- **Play your way** — practice against the built-in bot or play online through private rooms.
-- **Quick rematch and draws** — offer a draw, resign, or request a rematch in online games.
-- **Russian and English UI** — the interface follows the browser language when possible.
-- **Light and dark themes** — switch the board's appearance.
+| | |
+|---|---|
+| **Rules in plain language** | Describe a rule instead of editing configuration. Works in Russian and English. |
+| **Custom movement** | Change directions and range, let pieces jump over others, or teleport to empty squares. |
+| **Fantasy abilities** | Shooting, swapping places with an ally, explosions on capture, invulnerability, protection from neighbouring pieces. |
+| **Rewrite the basics** | Pawn captures, promotion, castling, check and checkmate — and even *which piece decides the win*. |
+| **Local play** | Against a lightweight bot, or two players on one device. |
+| **Online play** | Private rooms with a 4-character code, reconnect support, draw offers, resignation, and rematch with swapped colours. |
+| **Polished UI** | English / Русский (follows the browser language), light and dark themes, Cburnett piece set. |
 
-### A few rule ideas
+### Rule changes, in short
 
-Try things like:
+- Rules can be set freely **before the first move**.
+- During a game you can change them **on your own turn, once every two of your own moves**.
+- Changing a rule **does not use up your move**.
 
-- `Bishop moves like a knight`
-- `The queen can jump over pieces`
-- `Pawns capture only straight ahead`
-- `The queen is invulnerable`
-- `The bishop explodes when it captures`
-- `The knight can teleport once per game`
-- `No check or checkmate`
+## ✨ Rule ideas
 
-The built-in parser recognizes a subset of common rules. When the server is configured with a Groq API key, the game can use an AI-assisted parser for more flexible descriptions. Unsupported ideas are not guaranteed to work; see [Limitations](#-limitations).
+Try typing these (Russian works too):
+
+| Rule | What happens |
+|---|---|
+| `Bishop moves like a knight` | The bishop's movement is replaced. |
+| `The queen can jump over pieces` | The queen ignores blockers. |
+| `Pawns capture only straight ahead` | Pawn captures are rewritten. |
+| `The queen is invulnerable` | The queen can't be captured. |
+| `The bishop explodes when it captures` | Capturing also destroys neighbouring pieces. |
+| `The knight can teleport once per game` | One teleport to any **empty** square; normal knight moves are kept. |
+| `Pawns have guns` | Pieces can shoot without moving. |
+| `No check or checkmate` | Win by capturing the king. |
+
+> **Teleport note:** a teleport only lands on empty squares and never captures. This keeps it from "attacking" the king from everywhere, which would make every position checkmate.
+
+Ideas the engine cannot express (freezing, resurrection, new piece types, extra turns…) are reported back to the player instead of being silently faked. See [Limitations](#%EF%B8%8F-limitations).
 
 ## 🧩 Project structure
 
@@ -59,27 +73,28 @@ The built-in parser recognizes a subset of common rules. When the server is conf
 My-Rules-Chess/
 ├── myruleschess/
 │   ├── client/
-│   │   └── index.html       # Browser UI, chess engine and local play
+│   │   └── index.html      # UI, embedded engine, rule parser (fallback), local play, Yandex Games SDK hook
 │   └── server/
-│       ├── server.js        # HTTP API and WebSocket rooms
-│       ├── engine.js        # Rules, moves and game endings
+│       ├── server.js       # HTTP API (/parse, /version) + WebSocket rooms
+│       ├── engine.js       # Rules, move generation, game endings (shared logic)
 │       └──package.json
 └── README.md
 ```
 
-The client is built with **HTML, CSS and vanilla JavaScript**. The optional backend uses **Node.js** and the `ws` WebSocket library. Groq is used only for AI-assisted rule interpretation.
+- **Client:** a single file of HTML, CSS and vanilla JavaScript — no build step.
+- **Server:** Node.js with the [`ws`](https://github.com/websockets/ws) library. The AI parser calls the Groq API; it is optional.
+
+> ⚠️ **Keep the engine in sync.** `server/engine.js` is also embedded inside `client/index.html`. After changing one, apply the same change to the other.
 
 ## 🚀 Run locally
 
-### 1. Requirements
+### Requirements
 
-- Node.js **18 or newer**
-- A browser
-- A Groq API key only if you want AI-assisted rule interpretation
+- Node.js **18+**
+- A modern browser
+- *(Optional)* a Groq API key for AI-assisted rule parsing
 
-### 2. Start the server
-
-From the repository root:
+### 1. Start the server
 
 ```bash
 cd myruleschess/server
@@ -87,36 +102,36 @@ npm install
 npm start
 ```
 
-The server listens on port `8080` by default (or the port provided by the `PORT` environment variable).
+It listens on port `8080`, or on `PORT` if set.
 
-### 3. Configure the client
+### 2. Point the client at it
 
-Open `myruleschess/client/index.html` and find:
+In `myruleschess/client/index.html` find:
 
 ```js
 const SERVER = 'wss://CHANGE-ME.onrender.com';
 ```
 
-For local development, change it to:
+and change it for local development:
 
 ```js
 const SERVER = 'ws://localhost:8080';
 ```
 
-Serve the client directory over HTTP — for example, in a second terminal:
+### 3. Serve the client
+
+In a second terminal:
 
 ```bash
 cd myruleschess/client
 python -m http.server 5500
 ```
 
-Then open [http://localhost:5500](http://localhost:5500).
+Open <http://localhost:5500>.
 
-> Keep the server running in the first terminal. The local board and built-in rule parser can work without a configured Groq key; online rooms and the server-assisted parser need the backend.
+> The board, the bot and the built-in parser work without a backend. Online rooms and AI-assisted parsing need the server.
 
-### 4. Enable AI-assisted rule interpretation (optional)
-
-Set `GROQ_API_KEY` in the server environment before starting the server.
+### 4. Enable the AI parser *(optional)*
 
 **macOS / Linux**
 ```bash
@@ -130,37 +145,73 @@ $env:GROQ_API_KEY = "your-groq-api-key"
 npm start
 ```
 
-You can optionally set `GROQ_MODEL` to choose a preferred model. The server has fallback models configured. **Never commit your API key to the repository.**
+Optionally set `GROQ_MODEL` to choose the preferred model; the server falls back through several others automatically.
 
-## ☁️ Deploy the backend
+**Never commit your API key.** Keep it in environment variables only.
 
-The server can be deployed as a Node.js web service. For example, on Render:
+## ☁️ Deploy
 
-1. Create a new **Web Service** connected to this repository.
-2. Set **Root Directory** to `myruleschess/server`.
-3. Use `npm install` as the build command and `npm start` as the start command.
-4. Add `GROQ_API_KEY` as an environment variable if you want AI-assisted rules.
-5. Copy the deployed service URL and update `SERVER` in `myruleschess/client/index.html` to use its WebSocket URL, such as `wss://your-service.onrender.com`.
+### Backend (e.g. Render)
 
-For an HTTPS-hosted client, use **WSS** rather than **WS**. If publishing through Yandex Games, add the backend's HTTPS and WSS origins to the game's Content Security Policy. More server notes are available in [`myruleschess/server/README.md`](myruleschess/server/README.md).
+1. Create a **Web Service** connected to this repository.
+2. **Root Directory:** `myruleschess/server`
+3. **Build command:** `npm install` · **Start command:** `npm start`
+4. Add `GROQ_API_KEY` as an environment variable (optional).
+5. Put the service URL into `SERVER` in `client/index.html`, using the `wss://` scheme.
+
+Check a deployment by opening `https://your-service.onrender.com/version`.
+
+> **Free-tier note:** Render's free plan puts services to sleep when idle, so the first request after a pause can take 30–60 seconds. The client sends a wake-up request when the page opens.
+
+### Client (static hosting / Yandex Games)
+
+The client is one static file, so it works on GitHub Pages, Netlify, or similar. For an HTTPS page always use **WSS**, not WS.
+
+For **Yandex Games**, add the backend's HTTPS and WSS origins to the game's Content Security Policy, otherwise online play and AI parsing will be blocked.
+
+Further server notes: [`myruleschess/server/README.md`](myruleschess/server/README.md).
 
 ## ⚙️ How it works
 
-- **Local play:** the chess engine runs in the browser. The built-in bot uses a lightweight move-scoring heuristic; it is not a full-strength chess engine.
-- **Online play:** the backend synchronizes game state over WebSockets. A four-character room code is used to create or join a room.
-- **Rule parsing:** a built-in parser handles familiar patterns. If `GROQ_API_KEY` is set, the backend can ask a Groq-hosted model to interpret more varied rule descriptions.
-- **Rule changes:** rules can be set before the first move. During a game, a player can change them on their turn after every two of their own moves; changing rules does not consume a move.
+```mermaid
+flowchart LR
+    P["Player types a rule"] --> C["Client"]
+    C -->|"POST /parse"| S["Server"]
+    S -->|"prompt"| G["Groq LLM"]
+    G -->|"JSON patch"| S
+    S -->|"sanitize()"| C
+    C -. "server or key unavailable" .-> R["Built-in regex parser"]
+    C --> E["Engine runs the rules config"]
+```
+
+- **Rules are data.** Everything the engine knows lives in a JSON config: which piece wins (`winPiece`), whether check exists, pawn behaviour, immunity, shields, and per-piece movement (`slide`, `jumps`, `leap`, `shoot`, `swap`, `blast`, limits, and so on).
+  ```json
+  { "pieces": { "N": { "jumps": "any", "jumpLimit": 1 } } }
+  ```
+- **The AI can't break the game.** Model output is only a *patch*; it passes through `sanitize()`, which accepts known fields only. Unsupported requests are returned as unsupported rather than imitated.
+- **The server is the referee.** In online games every move is validated server-side with the same engine, so a modified client cannot cheat.
+- **Local play** runs the engine entirely in the browser. The bot is a simple move-scoring heuristic with some randomness — not a strong engine.
+- **Online play** uses WebSockets and four-character room codes. Players who disconnect can resume their seat for a short grace period.
+- **Rate limits** protect the AI endpoint; when it is unavailable the game quietly uses the built-in parser.
 
 ## ⚠️ Limitations
 
-- Not every imaginable chess variant can be expressed. New piece types, extra turns, freezing, resurrection, board reshaping, and time-based effects are not implemented.
-- The built-in bot is intentionally simple and may make weak moves, especially with unusual rules.
-- Online room state and the rule-parsing cache are stored in memory. Active rooms and cached results are lost when the server restarts.
-- The online mode and AI-assisted parsing require the backend URL to be configured for your deployment.
+- **Not every variant is expressible.** New piece types, extra turns, freezing, resurrection, board reshaping and time-based effects are not implemented.
+- **The built-in parser is a subset.** It recognises common phrasings; the AI parser is far more flexible but needs the backend.
+- **The bot is weak,** especially with unusual rules.
+- **State is in memory.** Rooms and the parse cache disappear when the server restarts.
+- **Draws are simple:** by agreement, repetition and bare kings. Positions like king + bishop vs king are not detected as dead draws.
+- **Experimental.** Odd rule combinations can produce odd games — that's part of the fun, but report anything that looks like an engine bug.
+
+## 🛠 Development notes
+
+- No build step and no front-end dependencies; the only npm dependency is `ws`.
+- A good regression check for engine changes is **perft** on the standard setup: depths 1–3 must give **20 / 400 / 8902** moves.
+- When you add a new rule field, update all of these together: the engine, `sanitize()`, the AI prompt in `server.js`, the fallback parser in `index.html`, and the Russian and English UI strings.
 
 ## 📄 Credits
 
-Chess piece artwork is based on the **Cburnett** set by Colin M. L. Burnett and is included under the BSD license; the license notice is retained in the client source.
+Piece artwork is based on the **Cburnett** set by Colin M. L. Burnett, used under the BSD licence; the notice is kept in the client source.
 
 ---
 
