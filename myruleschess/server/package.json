@@ -1,1 +1,16 @@
-{"name":"chess-server","version":"1.0.0","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"ws":"^8.18.0"},"engines":{"node":">=18"}}
+{
+  "name": "chess-server",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "eval": "node eval.js",
+    "fuzz": "node fuzz.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
