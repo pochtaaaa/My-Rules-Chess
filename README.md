@@ -36,16 +36,16 @@ Each player can describe a new rule in a sentence. An AI-assisted parser (with a
 |---|---|
 | **Rules in plain language** | Describe a rule instead of editing configuration. Works in Russian and English. |
 | **Custom movement** | Change directions and range, let pieces jump over others, or teleport to empty squares. |
-| **Fantasy abilities** | Shooting, swapping places with an ally, explosions on capture, invulnerability, protection from neighbouring pieces. |
+| **Fantasy abilities** | Shooting, swapping places with an ally, explosions on capture, invulnerability, protection from neighbouring pieces, **freezing** enemies, **converting** enemies into allies, **reviving** fallen pieces, **armor** (survive captures), **extra move** after a capture, pawns that step backward. |
 | **Rewrite the basics** | Pawn captures, promotion, castling, check and checkmate — and even *which piece decides the win*. |
 | **Local play** | Against a lightweight bot, or two players on one device. |
 | **Online play** | Private rooms with a 4-character code, reconnect support, draw offers, resignation, and rematch with swapped colours. |
-| **Polished UI** | English / Русский (follows the browser language), light and dark themes, Cburnett piece set. |
+| **Polished UI** | English / Русский with a built-in switcher (defaults to the browser language and remembers your choice), light and dark themes, Cburnett piece set, embedded serif font, smooth animations (sliding pieces, camera zoom into a new game) and a live bot-vs-bot demo on the start screen. |
 
 ### Rule changes, in short
 
-- Rules can be set freely **before the first move**.
-- During a game you can change them **on your own turn, once every two of your own moves**.
+- Each player gets **one rule change at the start**, on their own turn (White before the first move, Black on Black's first turn).
+- After that you can change the rules **on your own turn, once every two of your own moves**.
 - Changing a rule **does not use up your move**.
 
 ## ✨ Rule ideas
@@ -61,6 +61,12 @@ Try typing these (Russian works too):
 | `The bishop explodes when it captures` | Capturing also destroys neighbouring pieces. |
 | `The knight can teleport once per game` | One teleport to any **empty** square; normal knight moves are kept. |
 | `Pawns have guns` | Pieces can shoot without moving. |
+| `The knight freezes enemies for 2 turns` | A frozen piece cannot move or attack for 2 of its turns. |
+| `The bishop turns enemies into allies` | Instead of moving, it recruits a neighbouring enemy piece (not the king). |
+| `The queen revives fallen pieces` | Brings the last captured friendly piece back next to her. |
+| `Pawns wear armor` | A pawn survives one capture; the attacker bounces back. |
+| `The knight moves again after a capture` | Berserk: an extra move after taking a piece. |
+| `Pawns move 3 squares` | Pawns move forward up to 3 squares per move (blocked by pieces; captures stay diagonal). |
 | `No check or checkmate` | Win by capturing the king. |
 
 > **Teleport note:** a teleport only lands on empty squares and never captures. This keeps it from "attacking" the king from everywhere, which would make every position checkmate.
@@ -77,7 +83,10 @@ My-Rules-Chess/
 │   └── server/
 │       ├── server.js       # HTTP API (/parse, /version) + WebSocket rooms
 │       ├── engine.js       # Rules, move generation, game endings (shared logic)
-│       └──package.json
+│       ├── fuzz.js         # Randomized engine stress tests
+│       ├── eval.js         # AI rule parser evaluation suite
+│       ├── package.json    # Dependencies and test commands
+│       └── README.md       # Server-specific notes
 └── README.md
 ```
 
@@ -188,17 +197,19 @@ flowchart LR
   ```json
   { "pieces": { "N": { "jumps": "any", "jumpLimit": 1 } } }
   ```
+- **Numbers mean "up to".** "Moves 3 squares" is a range, never a jump of exactly 3. The server also repairs the most common language-model mistakes, and `npm run eval` in the server folder checks the parser against a table of real phrases.
+- **You always see what you get.** Before a rule is applied the game shows a plain-language description generated from the real engine config (not from the AI's own words), a preview board of where the piece can move and use abilities, and warnings such as "the rook will no longer be able to move". You confirm or cancel — a cancelled rule does not use up your rule change.
 - **The AI can't break the game.** Model output is only a *patch*; it passes through `sanitize()`, which accepts known fields only. Unsupported requests are returned as unsupported rather than imitated.
 - **The server is the referee.** In online games every move is validated server-side with the same engine, so a modified client cannot cheat.
-- **Local play** runs the engine entirely in the browser. The bot is a simple move-scoring heuristic with some randomness — not a strong engine.
+- **Local play** runs the engine entirely in the browser. The bot looks two plies ahead (its move and your best reply) using material and piece position — much better than a random mover, but still not a strong engine.
 - **Online play** uses WebSockets and four-character room codes. Players who disconnect can resume their seat for a short grace period.
 - **Rate limits** protect the AI endpoint; when it is unavailable the game quietly uses the built-in parser.
 
 ## ⚠️ Limitations
 
-- **Not every variant is expressible.** New piece types, extra turns, freezing, resurrection, board reshaping and time-based effects are not implemented.
+- **Not every variant is expressible.** New piece types, board reshaping, area spells and long-running timers are not implemented (freezing is the one time-based effect).
 - **The built-in parser is a subset.** It recognises common phrasings; the AI parser is far more flexible but needs the backend.
-- **The bot is weak,** especially with unusual rules.
+- **The bot is modest,** especially with unusual rules: it looks only two plies ahead.
 - **State is in memory.** Rooms and the parse cache disappear when the server restarts.
 - **Draws are simple:** by agreement, repetition and bare kings. Positions like king + bishop vs king are not detected as dead draws.
 - **Experimental.** Odd rule combinations can produce odd games — that's part of the fun, but report anything that looks like an engine bug.
@@ -206,12 +217,13 @@ flowchart LR
 ## 🛠 Development notes
 
 - No build step and no front-end dependencies; the only npm dependency is `ws`.
+- `npm run fuzz` (server folder) throws thousands of random rule sets and random games at the engine and checks hard invariants: no crashes, legal moves equal what really happens when played, valid state. Run it after every engine change; it has already found real bugs.
 - A good regression check for engine changes is **perft** on the standard setup: depths 1–3 must give **20 / 400 / 8902** moves.
 - When you add a new rule field, update all of these together: the engine, `sanitize()`, the AI prompt in `server.js`, the fallback parser in `index.html`, and the Russian and English UI strings.
 
 ## 📄 Credits
 
-Piece artwork is based on the **Cburnett** set by Colin M. L. Burnett, used under the BSD licence; the notice is kept in the client source.
+Piece artwork is based on the **Cburnett** set by Colin M. L. Burnett, used under the BSD licence. The UI font is a Latin + Cyrillic subset of **Lora** (Cyreal), renamed "MyRules Serif" and embedded under the SIL Open Font License 1.1. Both notices are kept in the client source.
 
 ---
 
