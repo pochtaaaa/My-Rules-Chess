@@ -58,7 +58,7 @@ function randomConfig() {
 }
 
 const fail = {};
-let positions = 0, games = 0, moves = 0, configs = 0;
+let positions = 0, games = 0, moves = 0, configs = 0, spells = 0, pendingSpell = null;
 const record = (kind, detail) => { (fail[kind] = fail[kind] || []).push(detail); };
 const board = S => S.bd.map(r => r.map(p => p ? (p.c === 'w' ? p.t : p.t.toLowerCase()) : '.').join('')).join('/');
 
@@ -70,7 +70,7 @@ function audit(S, cfgRaw) {
     const P = clone(S); P.cfg.check = false;                       // pseudo-legal moves only
     for (const m of E.movesOf(P, r, c)) {
       if (p.t === 'K' && !m[2] && Math.abs(m[1] - c) === 2) continue;   // castling has its own path rules
-      const U = clone(S);
+      const U = clone(S); if (U.spell) U.spell.left = 99;     // judge the move by the rules in force when it is made, not by the ones after expiry
       try { E.play(U, r, c, m[0], m[1], m[2] || (p.t === 'P' && (m[0] === 0 || m[0] === 7) ? 'Q' : undefined)); }
       catch (e) { record('play-threw', { err: String(e.message), cfg: cfgRaw, board: board(S), move: [r, c, ...m] }); continue; }
       const wonByCapture = U.over && U.reason === 'capture';
@@ -86,15 +86,30 @@ while (Date.now() - t0 < seconds * 1000) {
   try { cfg = E.sanitize(raw); const again = E.sanitize(cfg); if (JSON.stringify(again) !== JSON.stringify(cfg)) record('sanitize-not-idempotent', { cfg: raw }); JSON.parse(JSON.stringify(cfg)); }
   catch (e) { record('sanitize-threw', { err: String(e.message), cfg: raw }); continue; }
   configs++;
-  let S = E.newGame(cfg); games++;
+  let S = E.newGame(cfg); games++; pendingSpell = null;
   for (let ply = 0; ply < 70 && !S.over; ply++) {
     try {
       if (E.inCheck(S, S.turn) || ply % 6 === 0) audit(S, raw);
       const all = [];
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const p = S.bd[r][c]; if (p && p.c === S.turn) for (const m of E.movesOf(S, r, c)) all.push([r, c, ...m]); }
       if (!all.length) { record('no-moves-but-game-continues', { cfg: raw, board: board(S), turn: S.turn }); break; }
+      // random spells: after a successful cast the enemy king must not be attacked, the caster must have a move,
+      // and exactly two plies later the original rules must be back
+      if (!S.spell && E.canChange(S, S.turn) && chance(.12)) {
+        const caster = S.turn, before = JSON.stringify(S.cfg), r = E.setRules(S, E.sanitize(randomConfig()), caster);
+        if (r.ok) {
+          spells++;
+          if (E.kingAttacked(S, caster === 'w' ? 'b' : 'w')) record('spell-exposed-king', { cfg: raw, board: board(S), caster });
+          if (r.cost > E.BAL.budget) record('spell-over-budget', { cost: r.cost, cfg: raw });
+          pendingSpell = { before, plies: 0 };
+        }
+        const all2 = []; for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) { const q = S.bd[a][b]; if (q && q.c === S.turn) for (const mm of E.movesOf(S, a, b)) all2.push([a, b, ...mm]); }
+        if (!all2.length) { record('spell-left-caster-without-moves', { cfg: raw, board: board(S) }); break; }
+        all.length = 0; all.push(...all2);
+      }
       const m = pick(all), p = S.bd[m[0]][m[1]];
       E.play(S, m[0], m[1], m[2], m[3], m[4] || (p.t === 'P' && (m[2] === 0 || m[2] === 7) ? 'Q' : undefined)); moves++;
+      if (pendingSpell && !S.over) { pendingSpell.plies++; if (pendingSpell.plies >= E.BAL.lifetime) { if (S.spell || JSON.stringify(S.cfg) !== pendingSpell.before) record('spell-did-not-expire', { cfg: raw, board: board(S) }); pendingSpell = null; } }
       if (S.turn !== 'w' && S.turn !== 'b') record('bad-turn', { cfg: raw, board: board(S) });
       let kw = 0, kb = 0; for (const row of S.bd) for (const q of row) { if (q && q.t === 'K') q.c === 'w' ? kw++ : kb++; }
       if (kw > 1 || kb > 1) record('duplicate-king', { cfg: raw, board: board(S) });
@@ -102,7 +117,7 @@ while (Date.now() - t0 < seconds * 1000) {
     } catch (e) { record('threw', { err: String(e.stack || e).split('\n').slice(0, 3).join(' | '), cfg: raw, board: board(S) }); break; }
   }
 }
-console.log(`fuzz: ${configs} rule sets, ${games} games, ${moves} moves, ${positions} audited positions in ${seconds}s (seed ${process.argv[3] || 'random'})`);
+console.log(`fuzz: ${configs} rule sets, ${games} games, ${moves} moves, ${spells} spells cast, ${positions} audited positions in ${seconds}s (seed ${process.argv[3] || 'random'})`);
 const kinds = Object.keys(fail);
 if (!kinds.length) { console.log('no problems found'); process.exit(0); }
 require('fs').writeFileSync('fuzz-failures.json', JSON.stringify(Object.fromEntries(kinds.map(k => [k, fail[k][0]])), null, 1));
