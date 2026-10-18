@@ -182,6 +182,13 @@ html.zooming{overflow:hidden}
 .dc.rv::after{content:"";position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;background:var(--gp);border:2px solid var(--ge);box-sizing:border-box}
 .dc.ab::after{content:"";position:absolute;inset:14%;border-radius:50%;border:3px dashed var(--danger)}
 #pvw{margin-top:8px}#pvw div{background:var(--rp);color:var(--rt);border-radius:10px;padding:7px 10px;font-size:14px;margin:6px 0}
+.pvbal{background:var(--gp);color:var(--gt);border-radius:10px;padding:7px 10px;font-size:14px;margin:6px 0}.pvbal div{margin:2px 0}.pva .btn:disabled{opacity:.4;cursor:not-allowed}
+.acts{justify-content:stretch;gap:8px;margin-top:-2px}.acts .btn{flex:1;white-space:nowrap;padding:8px 6px}
+.prm{font-size:14px;color:var(--mut);text-align:center;margin-top:6px;line-height:1.35}
+.proc{min-width:min(88vw,320px)}
+.prob .btn{flex:1;white-space:nowrap}
+.btn.dng{background:var(--rp);border-color:var(--rp);color:var(--rt)}
+@media(hover:hover){.btn.dng:hover{background:var(--re);border-color:var(--re);color:var(--rt)}}
 .pva{display:flex;gap:10px;margin-top:12px}.pva .btn{flex:1}
 </style></head><body>
 <!-- Chess piece artwork: "Cburnett" set by Colin M.L. Burnett (Wikimedia Commons), published under GFDL, BSD and GPL at the user's choice; used here under the BSD license.
@@ -204,8 +211,8 @@ THE ARTWORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. -->
 <div id="s-game" class="screen hid">
 <div class="top"><button id="bBack" class="btn sm" data-i18n="back"></button><div id="st" class="st"></div></div>
 <div id="b"></div>
-<div class="bar"><label><input type="checkbox" id="bot" checked> <span data-i18n="bot"></span></label><span id="rc" class="chip" style="display:none"></span><button id="rs" class="btn sm" data-i18n="again"></button></div>
-<div class="bar" style="margin-top:-4px;justify-content:flex-end"><button id="dw" class="btn sm" data-i18n="dw"></button><button id="rg" class="btn sm" data-i18n="rg"></button></div>
+<div class="bar"><label><input type="checkbox" id="bot" checked> <span data-i18n="bot"></span></label><span id="rc" class="chip" style="display:none"></span></div>
+<div class="bar acts"><button id="rs" class="btn sm" data-i18n="again"></button><button id="dw" class="btn sm" data-i18n="dw"></button><button id="rg" class="btn sm" data-i18n="rg"></button></div>
 <div class="panel" id="nl">
 <div id="ri"></div>
 <textarea id="nlt" rows="1" spellcheck="false"></textarea>
@@ -214,10 +221,10 @@ THE ARTWORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. -->
 <details id="help"><summary data-i18n="hq"></summary><div id="hp"></div></details>
 </div>
 </div>
-<div id="pro" class="hid"><div class="proc"><span id="prt"></span><div id="prob" class="prob"></div></div></div>
+<div id="pro" class="hid"><div class="proc"><span id="prt"></span><div id="prm" class="prm"></div><div id="prob" class="prob"></div></div></div>
 <button id="th" aria-label="theme"></button>
 <button id="lg" aria-label="language"></button>
-<div id="pv" class="hid"><div class="pvc"><div id="pvt" class="pvh"></div><ul id="pvl"></ul><div id="pvb"></div><div id="pvw"></div><div class="pva"><button id="pvn" class="btn"></button><button id="pvy" class="btn pri"></button></div></div></div>
+<div id="pv" class="hid"><div class="pvc"><div id="pvt" class="pvh"></div><ul id="pvl"></ul><div id="pvx"></div><div id="pvb"></div><div id="pvw"></div><div class="pva"><button id="pvn" class="btn"></button><button id="pvy" class="btn pri"></button></div></div></div>
 <div id="err"></div>
 <script>
 (function(){
@@ -227,12 +234,13 @@ const vec=v=>typeof v==='string'?(DIR[v]||[]):(Array.isArray(v)?v:[]);
 const STD={winPiece:'K',promoteTo:'choice',pawnDouble:true,pawnRange:1,pawnBack:false,pawnCapture:'diag',castling:true,check:true,immune:[],shield:{},pieces:{K:{slide:'all',max:1},Q:{slide:'all',max:8},R:{slide:'orth',max:8},B:{slide:'diag',max:8},N:{jumps:'knight'}}};
 const In=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
 const rv=(p,pc,v)=>{const s=pc.rel&&p.c==='b'?-1:1;return vec(v).map(([a,b])=>[a*s,b])};
+const reviveIdx=(S,col)=>{const L=(S.cap||{})[col]||[];for(let i=L.length-1;i>=0;i--)if(L[i]!=='Q'&&L[i]!=='K')return i;return -1};
 const armorOf=(S,q)=>q.ar!==undefined?q.ar:((S.cfg.pieces[q.t]||{}).armor||0);
 const royalOn=S=>S.cfg.check!==false&&S.cfg.winPiece==='K';
 function key(S){let s=S.turn;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=S.bd[r][c];s+=p?p.c+p.t+((p.t==='K'||p.t==='R')&&!p.m?'u':''):'.'}return s+(S.ep?S.ep.r+''+S.ep.c:'')}
 function newGame(cfg){const row='RNBQKBNR',bd=Array.from({length:8},()=>Array(8).fill(null));
  for(let c=0;c<8;c++){bd[0][c]={t:row[c],c:'b'};bd[1][c]={t:'P',c:'b'};bd[6][c]={t:'P',c:'w'};bd[7][c]={t:row[c],c:'w'}}
- const S={cfg,bd,turn:'w',jc:{},over:false,winner:null,reason:null,nm:{w:0,b:0},lc:{w:-EVERY,b:-EVERY},ep:null,hm:0,rep:{},cap:{w:[],b:[]},bz:false};S.rep[key(S)]=1;if(!hasMoves(S,S.turn))finish(S,null,'stalemate');return S}
+ const S={cfg,bd,turn:'w',jc:{},over:false,winner:null,reason:null,nm:{w:0,b:0},lc:{w:-EVERY,b:-EVERY},ep:null,hm:0,rep:{},cap:{w:[],b:[]},bz:false,spell:null};S.rep[key(S)]=1;if(!hasMoves(S,S.turn))finish(S,null,'stalemate');return S}
 function shielded(S,r,c,q){const by=(S.cfg.shield||{})[q.t];if(!by)return false;
  return DIR.orth.some(([a,b])=>{const p=In(r+a,c+b)&&S.bd[r+a][c+b];return p&&p.c===q.c&&p.t===by})}
 function castleRook(S,p,r,c,y,x){
@@ -257,7 +265,7 @@ function pseudo(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.c
   rv(p,pc,pc.slide).forEach(([a,b])=>{for(let i=1;i<=(pc.max||8);i++){const y=r+a*i,x=c+b*i;if(!In(y,x))break;if(!add(y,x)&&!pc.leap)break}});
   {const bj=rv(p,pc,(STD.pieces[p.t]||{}).jumps),lim=pc.jumpLimit,jl=!lim||(S.jc[p.c+p.t]||0)<lim;
    if(pc.jumps==='any'){bj.forEach(([a,b])=>add(r+a,c+b));
-    if(jl)for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(!bd[y][x]&&!o.some(m=>m[0]===y&&m[1]===x))o.push([y,x])}
+    if(jl)for(let y=0;y<8;y++)for(let x=0;x<8;x++)if(!bd[y][x]&&Math.max(Math.abs(y-r),Math.abs(x-c))<=(pc.jumpRange||7)&&!o.some(m=>m[0]===y&&m[1]===x))o.push([y,x])}
    else{const bs=bj.map(v=>v+'');rv(p,pc,pc.jumps).forEach(([a,b])=>{if(jl||bs.includes(a+','+b))add(r+a,c+b)})}}
  }
  const sh=pc.shoot;
@@ -265,8 +273,8 @@ function pseudo(S,r,c){const bd=S.bd,p=bd[r][c],o=[],en=p.c==='w'?'b':'w',pc=S.c
  if(pc.swap&&(!pc.swapLimit||(S.jc[p.c+p.t+'w']||0)<pc.swapLimit))for(let y=0;y<8;y++)for(let x=0;x<8;x++){const q=bd[y][x];if(q&&q.c===p.c&&q!==p)o.push([y,x,'w'])}
  const lim=(k,l)=>!l||(S.jc[p.c+p.t+k]||0)<l,near=(R,f)=>{for(let y=Math.max(0,r-R);y<=Math.min(7,r+R);y++)for(let x=Math.max(0,c-R);x<=Math.min(7,c+R);x++)f(y,x,bd[y][x])};
  if(pc.freeze&&lim('f',pc.freeze.limit))near(pc.freeze.range||1,(y,x,q)=>{if(q&&q.c!==p.c&&!(q.fz>0)&&!imm.includes(q.t))o.push([y,x,'f'])});
- if(pc.convert&&lim('c',pc.convert.limit))near(pc.convert.range||1,(y,x,q)=>{if(q&&q.c!==p.c&&q.t!=='K'&&q.t!==S.cfg.winPiece&&!imm.includes(q.t))o.push([y,x,'c'])});
- if(pc.revive&&lim('r',pc.revive.limit)&&((S.cap||{})[p.c]||[]).length)near(1,(y,x,q)=>{if(!q)o.push([y,x,'r'])});
+ if(pc.convert&&lim('c',pc.convert.limit))near(pc.convert.range||1,(y,x,q)=>{if(q&&q.c!==p.c&&BAL.convertTypes.includes(q.t)&&q.t!==S.cfg.winPiece&&!imm.includes(q.t))o.push([y,x,'c'])});
+ if(pc.revive&&lim('r',pc.revive.limit)&&reviveIdx(S,p.c)>=0)near(1,(y,x,q)=>{if(!q)o.push([y,x,'r'])});
  if(p.t==='K')for(const x of[6,2])if(castleRook(S,p,r,c,r,x)>=0)o.push([r,x]);
  return o}
 function attacked(S,col){let kr=-1,kc=-1;
@@ -278,13 +286,13 @@ function sim(S,r,c,y,x,opt){const bd=S.bd,p=bd[r][c],sv=[],save=(a,b)=>sv.push([
  if(opt==='s'){const q=bd[y][x];if(!(q&&armorOf(S,q)>0)){save(y,x);bd[y][x]=null}}
  else if(opt==='f'){save(y,x);bd[y][x]={...bd[y][x],fz:(S.cfg.pieces[p.t].freeze||{}).turns||2}}
  else if(opt==='c'){save(y,x);bd[y][x]={...bd[y][x],c:p.c}}
- else if(opt==='r'){save(y,x);const L=S.cap[p.c];bd[y][x]={t:L[L.length-1],c:p.c}}
+ else if(opt==='r'){save(y,x);const L=S.cap[p.c];bd[y][x]={t:L[reviveIdx(S,p.c)],c:p.c}}
  else if(opt==='w'){save(r,c);save(y,x);const q=bd[y][x];bd[y][x]=p;bd[r][c]=q}
  else{const q0=bd[y][x];if(q0&&q0.c!==p.c&&armorOf(S,q0)>0)return()=>{};save(r,c);save(y,x);const e=S.ep;
   if(p.t==='P'&&!bd[y][x]&&x!==c&&e&&e.r===y&&e.c===x){save(e.pr,e.pc);bd[e.pr][e.pc]=null}
   const cr=castleRook(S,p,r,c,y,x);if(cr>=0){const nx=x===6?5:3;save(r,cr);save(r,nx);bd[r][nx]=bd[r][cr];bd[r][cr]=null}
   const cap=bd[y][x],bpc=S.cfg.pieces[p.t]||{};bd[y][x]=p;bd[r][c]=null;
-  if(bpc.blast&&cap){const im=S.cfg.immune||[];for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const ny=y+da,nx=x+db;if((da||db)&&In(ny,nx)){const z=bd[ny][nx];if(z&&z.c!==p.c&&!im.includes(z.t)){save(ny,nx);bd[ny][nx]=null}}}}}
+  if(bpc.blast&&cap){const im=S.cfg.immune||[];for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const ny=y+da,nx=x+db;if((da||db)&&In(ny,nx)){const z=bd[ny][nx];if(z&&z.c!==p.c&&!im.includes(z.t)&&z.t!==S.cfg.winPiece){save(ny,nx);bd[ny][nx]=null}}}}}
  return()=>{for(let i=sv.length-1;i>=0;i--){const[a,b,v]=sv[i];bd[a][b]=v}}}
 function movesOf(S,r,c){const o=pseudo(S,r,c);if(!royalOn(S))return o;
  const p=S.bd[r][c],col=p.c,res=[];
@@ -310,7 +318,7 @@ function play(S,r,c,y,x,opt){const promo=(typeof opt==='string'&&opt.length===1&
  if(armored){tq0.ar=armorOf(S,tq0)-1;if(opt==='s')S.jc[p.c+p.t+'s']=(S.jc[p.c+p.t+'s']||0)+1}
  else if(opt==='f'){const q=S.bd[y][x];S.jc[p.c+p.t+'f']=(S.jc[p.c+p.t+'f']||0)+1;q.fz=(pc.freeze&&pc.freeze.turns)||2}
  else if(opt==='c'){const q=S.bd[y][x];S.jc[p.c+p.t+'c']=(S.jc[p.c+p.t+'c']||0)+1;q.c=p.c;q.m=true}
- else if(opt==='r'){S.jc[p.c+p.t+'r']=(S.jc[p.c+p.t+'r']||0)+1;S.bd[y][x]={t:S.cap[p.c].pop(),c:p.c,m:true}}
+ else if(opt==='r'){S.jc[p.c+p.t+'r']=(S.jc[p.c+p.t+'r']||0)+1;S.bd[y][x]={t:S.cap[p.c].splice(reviveIdx(S,p.c),1)[0],c:p.c,m:true}}
  else if(opt==='s'){const q=S.bd[y][x];S.jc[p.c+p.t+'s']=(S.jc[p.c+p.t+'s']||0)+1;S.bd[y][x]=null;kills=[q]}
  else if(opt==='w'){const q=S.bd[y][x];S.jc[p.c+p.t+'w']=(S.jc[p.c+p.t+'w']||0)+1;S.bd[y][x]=p;S.bd[r][c]=q;p.m=true;q.m=true}
  else{
@@ -324,7 +332,7 @@ function play(S,r,c,y,x,opt){const promo=(typeof opt==='string'&&opt.length===1&
   if(std&&diagOK&&Math.abs(y-r)===2&&x===c&&r===(p.c==='w'?6:1))S.ep={r:(r+y)/2,c,pr:y,pc:c,by:p.c};
   if(pawn&&y===(p.c==='w'?0:7)){const t=S.cfg.promoteTo;p.t=(!t||t==='choice')?(promo||'Q'):t}
   kills=[q||epc];
-  if(pc.blast&&q)for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const ny=y+da,nx=x+db;if((da||db)&&In(ny,nx)){const z=S.bd[ny][nx];if(z&&z.c!==p.c&&!imm.includes(z.t)){kills.push(z);S.bd[ny][nx]=null}}}
+  if(pc.blast&&q)for(let da=-1;da<=1;da++)for(let db=-1;db<=1;db++){const ny=y+da,nx=x+db;if((da||db)&&In(ny,nx)){const z=S.bd[ny][nx];if(z&&z.c!==p.c&&!imm.includes(z.t)&&z.t!==S.cfg.winPiece){kills.push(z);S.bd[ny][nx]=null}}}
  }
  kills=kills.filter(Boolean);
  for(const z of kills){const L=(S.cap[z.c]=S.cap[z.c]||[]);L.push(z.t);if(L.length>16)L.shift()}
@@ -334,6 +342,7 @@ function play(S,r,c,y,x,opt){const promo=(typeof opt==='string'&&opt.length===1&
  for(const row of S.bd)for(const z of row)if(z&&z.c===mover&&z.fz>0)z.fz--;
  const again=!!(pc.extra&&kills.length&&!S.bz&&hasMoves(S,mover));S.bz=again;
  if(!again)S.turn=S.turn==='w'?'b':'w';
+ if(S.spell&&--S.spell.left<=0){S.cfg=S.spell.base;S.spell=null;for(const row of S.bd)for(const z of row)if(z&&z.ar!==undefined)delete z.ar}
  const k=key(S);S.rep[k]=(S.rep[k]||0)+1;
  const end=ending(S,k);if(end==='checkmate')finish(S,mover,'checkmate');else if(end)finish(S,null,end)}
 function sanitize(c){const L='KQRBNP',ok=x=>typeof x==='string'&&x.length===1&&L.includes(x),cl=(n,a,b)=>Math.min(b,Math.max(a,n));c=c||{};
@@ -343,7 +352,7 @@ function sanitize(c){const L='KQRBNP',ok=x=>typeof x==='string'&&x.length===1&&L
  for(const k of L){const p=(c.pieces||{})[k];if(!p||typeof p!=='object'){if(STD.pieces[k])o.pieces[k]=JSON.parse(JSON.stringify(STD.pieces[k]));continue}const q={};
   const sl=sv(p.slide),jm=sv(p.jumps);if(sl)q.slide=sl;if(jm)q.jumps=jm;
   if(Number.isInteger(p.max))q.max=cl(p.max,1,8);
-  if(Number.isInteger(p.jumpLimit))q.jumpLimit=cl(p.jumpLimit,1,64);
+  if(Number.isInteger(p.jumpLimit))q.jumpLimit=cl(p.jumpLimit,1,64);if(Number.isInteger(p.jumpRange))q.jumpRange=cl(p.jumpRange,1,7);
   if(p.leap===true)q.leap=true;if(p.rel===true)q.rel=true;if(p.blast===true)q.blast=true;
   if(p.swap===true){q.swap=true;if(Number.isInteger(p.swapLimit))q.swapLimit=cl(p.swapLimit,1,64)}
   if(p.shoot&&typeof p.shoot==='object'){q.shoot={dirs:sv(p.shoot.dirs)||'all',range:Number.isInteger(p.shoot.range)?cl(p.shoot.range,1,8):3};if(Number.isInteger(p.shoot.limit))q.shoot.limit=cl(p.shoot.limit,1,64)}
@@ -355,10 +364,60 @@ function sanitize(c){const L='KQRBNP',ok=x=>typeof x==='string'&&x.length===1&&L
   if(Array.isArray(p.noCapture))q.noCapture=p.noCapture.filter(ok).slice(0,6);o.pieces[k]=q}
  return o}
 const EVERY=2;
-function canChange(S,c){const n=S.nm||{w:0,b:0},l=S.lc||{w:-EVERY,b:-EVERY};return !S.over&&S.turn===c&&n[c]-l[c]>=EVERY}
-function setRules(S,cfg,c){S.cfg=cfg;S.lc[c]=S.nm[c];S.hm=0;S.rep={};S.rep[key(S)]=1;
- if(!S.over&&!hasMoves(S,S.turn)){if(inCheck(S,S.turn))finish(S,S.turn==='w'?'b':'w','checkmate');else finish(S,null,'stalemate')}}
-const E={STD,DIR,vec,newGame,movesOf,play,sanitize,EVERY,canChange,setRules,finish,inCheck,armorOf};
+function canChange(S,c){const n=S.nm||{w:0,b:0},l=S.lc||{w:-EVERY,b:-EVERY};return !S.over&&!S.spell&&S.turn===c&&n[c]-l[c]>=EVERY}
+
+// ===== balance: rules are short-lived spells; the engine trims anything too strong =====
+const BAL={budget:4,lifetime:2,pawnRange:3,shoot:3,blink:3,freezeTurns:1,freezeRange:2,armor:1,mobilityCap:14,convertTypes:'PNB'};
+const MOVE_FIELDS=['slide','max','jumps','jumpLimit','leap','jumpRange','rel'];
+function power(cfg,X){const c=JSON.parse(JSON.stringify(cfg));c.check=false;if(c.pieces[X]&&c.pieces[X].jumps==='any')c.pieces[X].jumps=null;
+ const T=newGame(c);T.over=false;T.bd=Array.from({length:8},()=>Array(8).fill(null));T.bd[4][3]={t:X,c:'w'};T.cap={w:[],b:[]};
+ return movesOf(T,4,3).filter(m=>!m[2]).length}
+function balance(baseIn,cfgIn){
+ const B=sanitize(baseIn),c=sanitize(cfgIn),notes=[],J=JSON.stringify,note=(k,x,v)=>notes.push({k,x,v});
+ if(c.winPiece!==B.winPiece){c.winPiece=B.winPiece;note('win')}
+ if(c.immune.includes('K')){c.immune=c.immune.filter(x=>x!=='K');note('immuneK')}
+ if(c.pawnRange>BAL.pawnRange){c.pawnRange=BAL.pawnRange;note('pawnRange',null,BAL.pawnRange)}
+ const changed=X=>J(c.pieces[X])!==J(B.pieces[X]);
+ for(const X of Object.keys(c.pieces)){if(!changed(X))continue;const d=c.pieces[X];
+  if(d.shoot&&d.shoot.range>BAL.shoot){d.shoot.range=BAL.shoot;note('shoot',X,BAL.shoot)}
+  if(d.jumps==='any'&&(d.jumpRange||7)>BAL.blink){d.jumpRange=BAL.blink;note('blink',X,BAL.blink)}
+  if(d.freeze&&(d.freeze.turns>BAL.freezeTurns||d.freeze.range>BAL.freezeRange)){d.freeze.turns=Math.min(d.freeze.turns,BAL.freezeTurns);d.freeze.range=Math.min(d.freeze.range,BAL.freezeRange);note('freeze',X)}
+  if(d.convert&&d.convert.range>1){d.convert.range=1;note('convert',X)}
+  if(d.armor>BAL.armor){d.armor=BAL.armor;note('armor',X,BAL.armor)}}
+ // movement power: a changed piece may not become stronger than a rook
+ for(const X of 'KQRBN'){if(!changed(X)||!c.pieces[X])continue;const d=c.pieces[X],mv=o=>J(MOVE_FIELDS.map(k=>o&&o[k]));if(mv(d)===mv(B.pieces[X]))continue;
+  const cap=Math.max(power(B,X),BAL.mobilityCap);if(power(c,X)<=cap)continue;
+  if(d.slide&&d.slide.length)for(let m=(d.max||8)-1;m>=1;m--){d.max=m;if(power(c,X)<=cap)break}
+  if(power(c,X)>cap){for(const k of MOVE_FIELDS){const v=B.pieces[X]&&B.pieces[X][k];if(v===undefined)delete d[k];else d[k]=JSON.parse(J(v))}}
+  note('mobility',X)}
+ // power budget
+ const F=[],add=(cost,k,x,rm)=>F.push({cost,k,x,rm});
+ for(const X of Object.keys(c.pieces)){if(!changed(X))continue;const d=c.pieces[X],b0=B.pieces[X]||{};
+  if(J(MOVE_FIELDS.map(k=>d[k]))!==J(MOVE_FIELDS.map(k=>b0[k])))add(1,'move',X,()=>{for(const k of MOVE_FIELDS){if(b0[k]===undefined)delete d[k];else d[k]=JSON.parse(J(b0[k]))}});
+  if(d.leap&&!b0.leap)add(1,'leap',X,()=>{delete d.leap});
+  if(d.jumps==='any'&&b0.jumps!=='any')add(1,'blinkc',X,()=>{if(b0.jumps===undefined)delete d.jumps;else d.jumps=JSON.parse(J(b0.jumps));delete d.jumpRange});
+  for(const [k,cost] of [['shoot',2],['swap',1],['blast',2],['freeze',2],['convert',3],['revive',2],['armor',1],['extra',3]])if(d[k]&&!b0[k])add(cost,k,X,()=>{delete d[k]})}
+ if(!c.check&&B.check)add(2,'nocheck',null,()=>{c.check=true});
+ if(c.pawnRange>B.pawnRange)add(c.pawnRange-B.pawnRange,'pawnRange',null,()=>{c.pawnRange=B.pawnRange});
+ if(c.pawnBack&&!B.pawnBack)add(1,'pawnBack',null,()=>{c.pawnBack=false});
+ if(c.pawnCapture!==B.pawnCapture)add(1,'pawnCapture',null,()=>{c.pawnCapture=B.pawnCapture});
+ for(const X of c.immune)if(!B.immune.includes(X))add(2,'immune',X,()=>{c.immune=c.immune.filter(z=>z!==X)});
+ for(const X of Object.keys(c.shield))if(J(c.shield[X])!==J(B.shield[X]))add(1,'shield',X,()=>{if(B.shield[X]===undefined)delete c.shield[X];else c.shield[X]=B.shield[X]});
+ const spent=F.reduce((a,f)=>a+f.cost,0);let total=spent;
+ while(total>BAL.budget&&F.length){let bi=0;F.forEach((f,i)=>{if(f.cost>=F[bi].cost)bi=i});const f=F.splice(bi,1)[0];f.rm();total-=f.cost;note('trim',f.x,f.k)}
+ return{cfg:sanitize(c),notes,cost:total,spent,budget:BAL.budget}}
+const kingAttacked=(S,col)=>attacked(S,col);
+// a spell must not hand anybody an instant win: the enemy king may not be attacked right after the cast, and the caster must still have a move
+function validateSpell(S,cfg,c){const P=[],T=JSON.parse(JSON.stringify(S));T.cfg=cfg;T.spell=null;T.over=false;
+ if(attacked(T,c==='w'?'b':'w'))P.push('exposed');
+ if(!hasMoves(T,c))P.push('trapped');
+ return P}
+function setRules(S,cfg,c){
+ const base=S.spell?S.spell.base:S.cfg,b=balance(base,cfg),probs=validateSpell(S,b.cfg,c);
+ if(probs.length)return{ok:false,problems:probs,notes:b.notes,cost:b.cost,budget:b.budget};
+ S.spell={base,left:BAL.lifetime,by:c};S.cfg=b.cfg;S.lc[c]=S.nm[c];S.hm=0;S.rep={};S.rep[key(S)]=1;
+ return{ok:true,cfg:b.cfg,notes:b.notes,cost:b.cost,budget:b.budget}}
+const E={STD,DIR,vec,newGame,movesOf,play,sanitize,EVERY,canChange,setRules,finish,inCheck,armorOf,balance,validateSpell,kingAttacked,BAL};
 if(typeof module!=='undefined')module.exports=E;else window.Chess=E;
 })();
 
@@ -436,13 +495,13 @@ function parseRules(text,base){
  return{c,ok,bad};
 }
 /*P2*/
-const TX={ru:{lp:'{a} прыгает через фигуры',stay:'{a}: не может ходить',rst:'все правила сброшены к классическим',chk:'ШАХ!',r_checkmate:'мат',chs:'Выбери действие',mvto:'пойти и взять',shoot:'выстрелить',swapt:'поменяться местами',gun:'{a}: стреляет, дальность {n}',swp:'{a}: меняется местами с союзником',imm:'{a}: неуязвим',bl:'{a}: взрыв при взятии',ckr:'шах и мат: {v}',draw:'Ничья: {r}',r_stalemate:'пат',r_repetition:'троекратное повторение',r_fifty:'правило 50 ходов',r_kings:'остались одни короли',r_agreed:'по согласию',r_resign:'соперник сдался',dw:'ничья',rg:'сдаться',dro:'соперник предлагает ничью (нажми «ничья»)',drw:'ничья предложена',prot:'Во что превратить пешку?',cst:'рокировка: {v}',anyp:'любую фигуру на выбор',pcp:'пешки бьют: {v}',pcs:'только прямо',pcd:'по диагонали',pcb:'прямо и по диагонали',jany:'{a}: ходит в любую клетку{n}',mt:'MyChessRules',tag:'правила пишешь ты',back:'← меню',ri_setup:'Партия не начата',ri_turn:'Менять правила можно только в свой ход',ri_wait:'Правила можно менять раз в 2 своих хода, осталось ходов: {n}',ri_ready:'Можно изменить правила: они применятся сразу, ход не тратится',rl:'Сейчас менять правила нельзя',lv:'выйти из комнаты',locked:'В комнате правила менять нельзя. Выйди из комнаты, примени правила и создай новую.',aifail:'ИИ недоступен: ',code4:'Введи 4-значный код комнаты',wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'MyChessRules: шахматы, где правила пишешь ты',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Примеры правил',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
-dmh:'бот против бота',dms:'обычные шахматы',freezet:'заморозить',convt:'обратить в союзника',revt:'воскресить',mvgo:'пойти',pvt:'Проверь, что получится',pvy:'применить',pvn:'отмена',pvlg:'● ходы    ◯ способности',pvnote:'Так фигура ведёт себя на пустой доске:',d_orth:'по прямым',d_diag:'по диагонали',d_all:'во все стороны',prg:'пешка: ходит вперёд до {n} кл.',
+const TX={ru:{lp:'{a} прыгает через фигуры',stay:'{a}: не может ходить',rst:'все правила сброшены к классическим',chk:'ШАХ!',r_checkmate:'мат',chs:'Выбери действие',mvto:'пойти и взять',shoot:'выстрелить',swapt:'поменяться местами',gun:'{a}: стреляет, дальность {n}',swp:'{a}: меняется местами с союзником',imm:'{a}: неуязвим',bl:'{a}: взрыв при взятии',ckr:'шах и мат: {v}',draw:'Ничья: {r}',r_stalemate:'пат',r_repetition:'троекратное повторение',r_fifty:'правило 50 ходов',r_kings:'остались одни короли',r_agreed:'по согласию',r_resign:'соперник сдался',dw:'ничья',rg:'сдаться',dro:'соперник предлагает ничью (нажми «ничья»)',drw:'ничья предложена',prot:'Во что превратить пешку?',cst:'рокировка: {v}',anyp:'любую фигуру на выбор',pcp:'пешки бьют: {v}',pcs:'только прямо',pcd:'по диагонали',pcb:'прямо и по диагонали',jany:'{a}: ходит в любую клетку{n}',mt:'MyChessRules',tag:'правила пишешь ты',back:'← меню',ri_setup:'Партия не начата',ri_turn:'Менять правила можно только в свой ход',ri_wait:'Правило можно накладывать раз в 2 своих хода, осталось ходов: {n}',ri_ready:'Можно наложить правило: оно действует один ход каждого игрока, ход не тратится',rl:'Сейчас менять правила нельзя',lv:'выйти из комнаты',locked:'В комнате правила менять нельзя. Выйди из комнаты, примени правила и создай новую.',aifail:'ИИ недоступен: ',code4:'Введи 4-значный код комнаты',wake:'Сервер просыпается, подожди около минуты…',loc:'играть с ботом',crt:'создать комнату',jn2:'войти',wait:'Ждём соперника. Код комнаты: {k}',you:'ты — {c}',nf:'Комната не найдена',full:'Комната занята',bm:'Недопустимый ход',off:'Нет связи с сервером, переподключаюсь…',rmw:'ждём согласия на реванш',codeph:'код',title:'MyChessRules: шахматы, где правила пишешь ты',bot:'бот за чёрных',again:'заново',apply:'применить правила',hq:'Примеры правил',cw:'белые',cb:'чёрные',turn:'Ходят {c}',win:'Победа! Выиграли {c}!',yes:'да',no:'нет',
+dmh:'бот против бота',dms:'обычные шахматы',cf_rs:'Начать заново?',cf_rs_m:'Текущая партия будет потеряна.',cf_rs_mo:'Сопернику уйдёт запрос на новую партию.',cf_rs_y:'да, заново',cf_rg:'Сдаться?',cf_rg_m:'Партия будет засчитана как поражение.',cf_rg_y:'да, сдаться',cf_dw:'Предложить ничью?',cf_dw_m:'Партия закончится вничью.',cf_dw_mo:'Сопернику придёт предложение. Если он согласится, партия закончится вничью.',cf_dw_y:'да, ничья',ri_active:'Правило действует, осталось ходов: {n}',spellbad:'Это правило сейчас нельзя применить',spellend:'Правило закончилось: снова обычные шахматы',spelldur:'действует один ход каждого игрока',pvcost:'Мощность правила: {c} из {b}',pvdur:'Действует один ход каждого игрока, потом правила вернутся.',freezet:'заморозить',convt:'обратить в союзника',revt:'воскресить',mvgo:'пойти',pvt:'Проверь, что получится',pvy:'применить',pvn:'отмена',pvlg:'● ходы    ◯ способности',pvnote:'Так фигура ведёт себя на пустой доске:',d_orth:'по прямым',d_diag:'по диагонали',d_all:'во все стороны',prg:'пешка: ходит вперёд до {n} кл.',
 ph:'Напиши: слон ходит как конь',
 help:'слон ходит как конь\nконь замораживает врагов на 2 хода\nслон обращает врагов в союзников\nферзь воскрешает павших\nпешки в броне\nконь ходит ещё раз после взятия\nпешки ходят назад\nпешка ходит на 3 клетки\nферзь прыгает через фигуры\nу пешек пистолет\nконь телепортируется один раз\nферзь неуязвим\nпешки бьют только прямо\nслон — бомба\nбез шаха и мата',
 nc:'{a} не бьёт: {b}',jp:'{a}: прыжок конём{n}',jn:' ({n} р. за партию)',pr:'пешка превращается в: {a}',wn:'победа за того, кто съест: {a}',sh:'{a} под щитом: {b} рядом',db:'двойной ход пешки: {v}',lk:'{a} ходит как {b}',dr:'{a} ходит: {d}',mx:'{a}: максимум {n} кл.',none:'Ничего не понял. Загляни в «Примеры правил».',bad:'Не понял:',okh:'Применено:',skip:'Не понял (пропустил):'},
-en:{lp:'{a} jumps over pieces',stay:'{a}: cannot move',rst:'all rules reset to classic',chk:'CHECK!',r_checkmate:'checkmate',chs:'Choose an action',mvto:'move and capture',shoot:'shoot',swapt:'swap places',gun:'{a}: shoots, range {n}',swp:'{a}: swaps places with an ally',imm:'{a}: invulnerable',bl:'{a}: explodes on capture',ckr:'check and checkmate: {v}',draw:'Draw: {r}',r_stalemate:'stalemate',r_repetition:'threefold repetition',r_fifty:'50-move rule',r_kings:'only kings left',r_agreed:'by agreement',r_resign:'opponent resigned',dw:'draw',rg:'resign',dro:'opponent offers a draw (press «draw»)',drw:'draw offered',prot:'Promote the pawn to:',cst:'castling: {v}',anyp:'any piece of choice',pcp:'pawns capture: {v}',pcs:'straight ahead only',pcd:'diagonally',pcb:'straight and diagonally',jany:'{a}: moves to any square{n}',mt:'MyChessRules',tag:'you write the rules',back:'← menu',ri_setup:'Game not started: set the rules and press apply',ri_turn:'You can change rules only on your turn',ri_wait:'Rules can be changed every 2 of your moves, moves left: {n}',ri_ready:'You can change the rules now: they apply instantly and cost no move',rl:'You cannot change the rules right now',lv:'leave room',locked:'Rules cannot be changed inside a room. Leave, apply rules, then create a new room.',aifail:'AI unavailable: ',code4:'Enter the 4-character room code',wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'MyChessRules: chess where you write the rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'Example rules',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
-dmh:'bot vs bot',dms:'classic chess',freezet:'freeze',convt:'convert to ally',revt:'revive',mvgo:'move',pvt:'Check what you get',pvy:'apply',pvn:'cancel',pvlg:'● moves    ◯ abilities',pvnote:'How the piece behaves on an empty board:',d_orth:'straight',d_diag:'diagonally',d_all:'in all directions',prg:'pawn: moves forward up to {n} squares',
+en:{lp:'{a} jumps over pieces',stay:'{a}: cannot move',rst:'all rules reset to classic',chk:'CHECK!',r_checkmate:'checkmate',chs:'Choose an action',mvto:'move and capture',shoot:'shoot',swapt:'swap places',gun:'{a}: shoots, range {n}',swp:'{a}: swaps places with an ally',imm:'{a}: invulnerable',bl:'{a}: explodes on capture',ckr:'check and checkmate: {v}',draw:'Draw: {r}',r_stalemate:'stalemate',r_repetition:'threefold repetition',r_fifty:'50-move rule',r_kings:'only kings left',r_agreed:'by agreement',r_resign:'opponent resigned',dw:'draw',rg:'resign',dro:'opponent offers a draw (press «draw»)',drw:'draw offered',prot:'Promote the pawn to:',cst:'castling: {v}',anyp:'any piece of choice',pcp:'pawns capture: {v}',pcs:'straight ahead only',pcd:'diagonally',pcb:'straight and diagonally',jany:'{a}: moves to any square{n}',mt:'MyChessRules',tag:'you write the rules',back:'← menu',ri_setup:'Game not started: set the rules and press apply',ri_turn:'You can change rules only on your turn',ri_wait:'A rule can be cast every 2 of your moves, moves left: {n}',ri_ready:'You can cast a rule now: it lasts one move of each player and costs no move',rl:'You cannot change the rules right now',lv:'leave room',locked:'Rules cannot be changed inside a room. Leave, apply rules, then create a new room.',aifail:'AI unavailable: ',code4:'Enter the 4-character room code',wake:'Server is waking up, wait about a minute…',loc:'play vs bot',crt:'create room',jn2:'join',wait:'Waiting for opponent. Room code: {k}',you:'you are {c}',nf:'Room not found',full:'Room is full',bm:'Illegal move',off:'No connection, reconnecting…',rmw:'waiting for rematch',codeph:'code',title:'MyChessRules: chess where you write the rules',bot:'bot plays black',again:'restart',apply:'apply rules',hq:'Example rules',cw:'White',cb:'Black',turn:'{c} to move',win:'{c} win!',yes:'yes',no:'no',
+dmh:'bot vs bot',dms:'classic chess',cf_rs:'Start over?',cf_rs_m:'The current game will be lost.',cf_rs_mo:'Your opponent will get a request for a new game.',cf_rs_y:'yes, restart',cf_rg:'Resign?',cf_rg_m:'The game will count as a loss.',cf_rg_y:'yes, resign',cf_dw:'Offer a draw?',cf_dw_m:'The game will end in a draw.',cf_dw_mo:'Your opponent gets an offer. If they accept, the game ends in a draw.',cf_dw_y:'yes, draw',ri_active:'A rule is active, moves left: {n}',spellbad:'This rule cannot be applied now',spellend:'The rule is over: normal chess again',spelldur:'lasts one move of each player',pvcost:'Rule power: {c} of {b}',pvdur:'Lasts one move of each player, then the rules return.',freezet:'freeze',convt:'convert to ally',revt:'revive',mvgo:'move',pvt:'Check what you get',pvy:'apply',pvn:'cancel',pvlg:'● moves    ◯ abilities',pvnote:'How the piece behaves on an empty board:',d_orth:'straight',d_diag:'diagonally',d_all:'in all directions',prg:'pawn: moves forward up to {n} squares',
 ph:'Type: bishop moves like a knight',
 help:'bishop moves like knight\nknight freezes enemies for 2 turns\nbishop turns enemies into allies\nqueen revives fallen pieces\npawns wear armor\nknight moves again after a capture\npawns can move backward\npawn moves 3 squares\nqueen jumps over pieces\npawns have a pistol\nknight teleports once\nqueen is invulnerable\npawns capture only straight ahead\nbishop is a bomb\nno check and no checkmate',
 nc:'{a} cannot capture: {b}',jp:'{a}: knight jump{n}',jn:' ({n}x per game)',pr:'pawn promotes to: {a}',wn:'win by capturing: {a}',sh:'{a} is shielded by adjacent {b}',db:'pawn double step: {v}',lk:'{a} moves like {b}',dr:'{a} moves: {d}',mx:'{a}: max {n} squares',none:'Did not understand anything. See "Example rules".',bad:'Not understood:',okh:'Applied:',skip:'Not understood (skipped):'}};
@@ -459,7 +518,7 @@ function status(){
  const ck=inChk()?' · '+t('chk'):'';
  if(mode==='online'){if(!opp)return f('wait',{k:room?room.code:'…'});return f('turn',{c:cn(S.turn)})+ck+' · '+f('you',{c:cn(me)})+(dq?' · '+t('dro'):'')+(dm?' · '+t('drw'):'')}
  return f('turn',{c:cn(S.turn)})+ck}
-let prev=null,lm=null,introFlag=false;
+let prev=null,lm=null,introFlag=false,lastSp=false;
 const snap=()=>S.bd.map(r=>r.map(p=>p?p.c+p.t:''));
 function diffMoves(a,b){
  const src=[],dst=[];
@@ -491,12 +550,12 @@ function draw(){
  if(pend.length){void B.offsetWidth;for(const sp of pend){sp.style.transition='transform .26s cubic-bezier(.25,.8,.25,1)';sp.style.transform='translate(0,0)'}}
  {const s=status();$('st').textContent=s;$('mst').textContent=(mode==='online'&&ws&&ws.readyState!==1)?s:'';const rc=$('rc');rc.style.display=(mode==='online'&&room)?'':'none';rc.textContent=room?room.code:'';const lv=!S.over&&S.nm.w+S.nm.b>0;$('rg').style.display=lv?'':'none';$('dw').style.display=(lv&&(mode==='online'||!$('bot').checked))?'':'none'}
  $('bot').parentNode.style.display=mode==='online'?'none':'';
- $('ri').textContent=rinfo(mode==='online'?me:($('bot').checked?'w':S.turn));
+ $('ri').textContent=rinfo(mode==='online'?me:($('bot').checked?'w':S.turn));{const sp=!!S.spell;if(lastSp&&!sp&&!S.over&&S.nm.w+S.nm.b>0)$('sum').textContent=t('spellend');lastSp=sp}
 }
-function rinfo(who){if(S.over)return '';if(S.turn!==who)return t('ri_turn');const left=E.EVERY-(S.nm[who]-S.lc[who]);return left>0?f('ri_wait',{n:left}):t('ri_ready')}
-function askBox(title,items){$('prt').textContent=title;const box=$('prob');box.innerHTML='';for(const it of items){const b=document.createElement('button');b.className=it.cls;if(it.html)b.innerHTML=it.html;else b.textContent=it.txt;b.onclick=()=>{$('pro').classList.add('hid');it.fn()};box.appendChild(b)}$('pro').classList.remove('hid')}
+function rinfo(who){if(S.over)return '';if(S.spell)return f('ri_active',{n:S.spell.left});if(S.turn!==who)return t('ri_turn');const left=E.EVERY-(S.nm[who]-S.lc[who]);return left>0?f('ri_wait',{n:left}):t('ri_ready')}
+function askBox(title,items,msg){$('prt').textContent=title;$('prm').textContent=msg||'';const box=$('prob');box.innerHTML='';for(const it of items){const b=document.createElement('button');b.className=it.cls;if(it.html)b.innerHTML=it.html;else b.textContent=it.txt;b.onclick=()=>{$('pro').classList.add('hid');it.fn()};box.appendChild(b)}$('pro').classList.remove('hid')}
 function askPromo(col,cb){askBox(t('prot'),[...'QRBN'].map(l=>({cls:'pb '+(col==='w'?'w':'k'),html:psvg(col+l),fn:()=>cb(l)})))}
-function newLocal(){S=E.newGame(cfg);prev=null;lm=null;sel=null;mv=[];introFlag=true;draw();setTimeout(()=>{introFlag=false},60)}
+function newLocal(){S=E.newGame(cfg);prev=null;lm=null;sel=null;mv=[];lastSp=false;introFlag=true;draw();setTimeout(()=>{introFlag=false},60)}
 function click(r,c){
  if(S.over)return;const on=mode==='online',bot=$('bot').checked;
  if(on&&(!opp||!ws||ws.readyState!==1))return;
@@ -536,7 +595,7 @@ const RESET_RE=/(?:отмен\p{L}*|сброс\p{L}*|обнул\p{L}*|убер\p
 // ===== what the rule REALLY does: plain-language description, warnings and a preview board =====
 const DS={
  ru:{dirs:{orth:'по прямым',diag:'по диагонали',all:'во все стороны'},slide:(s,m)=>'скользит '+DS.ru.dirs[s]+(m&&m<8?', до '+m+' кл.':''),slideV:m=>'скользит по особым направлениям'+(m&&m<8?', до '+m+' кл.':''),
-  kn:'прыгает как конь',any:l=>'телепортируется на любую пустую клетку'+(l?' ('+l+' р. за партию)':''),jv:l=>'прыгает по особым векторам'+(l?' ('+l+' р.)':''),leap:'перепрыгивает через фигуры',stay:'не может ходить',
+  kn:'прыгает как конь',any:(l,r)=>'телепортируется на пустую клетку'+(r&&r<7?' в пределах '+r+' кл.':'')+(l?' ('+l+' р. за партию)':''),jv:l=>'прыгает по особым векторам'+(l?' ('+l+' р.)':''),leap:'перепрыгивает через фигуры',stay:'не может ходить',
   shoot:s=>'стреляет '+DS.ru.dirs[s.dirs]+' на '+s.range+' кл.'+(s.limit?' ('+s.limit+' р.)':''),swap:'меняется местами с союзником',blast:'взрывает соседей при взятии',
   freeze:f=>'замораживает врага на '+f.turns+' ход. (дальность '+f.range+')'+(f.limit?', '+f.limit+' р.':''),conv:f=>'обращает врага в союзника (дальность '+f.range+')'+(f.limit?', '+f.limit+' р.':''),
   rev:f=>'воскрешает последнюю погибшую фигуру рядом'+(f.limit?' ('+f.limit+' р.)':''),arm:n=>'броня: выдерживает '+n+' взят.',extra:'после взятия ходит ещё раз',noc:a=>'не бьёт: '+a,pawnStd:'ходит как обычная пешка',
@@ -545,7 +604,7 @@ const DS={
   imm:a=>'неуязвимы: '+a,noimm:'неуязвимых фигур нет',shield:(a,b)=>a+' под защитой соседней '+b,noshield:'защиты соседей нет',
   w_stuck:a=>'⚠ '+a+' больше не сможет ходить',w_nocap:'⚠ пешка больше не сможет бить',w_nostart:'⚠ у белых не будет ни одного хода: партия закончится сразу',w_end:'⚠ после этого правила партия закончится сразу'},
  en:{dirs:{orth:'straight',diag:'diagonally',all:'in all directions'},slide:(s,m)=>'slides '+DS.en.dirs[s]+(m&&m<8?', up to '+m+' squares':''),slideV:m=>'slides in special directions'+(m&&m<8?', up to '+m+' squares':''),
-  kn:'jumps like a knight',any:l=>'teleports to any empty square'+(l?' ('+l+' per game)':''),jv:l=>'jumps by special vectors'+(l?' ('+l+' per game)':''),leap:'jumps over pieces',stay:'cannot move',
+  kn:'jumps like a knight',any:(l,r)=>'teleports to an empty square'+(r&&r<7?' within '+r+' squares':'')+(l?' ('+l+' per game)':''),jv:l=>'jumps by special vectors'+(l?' ('+l+' per game)':''),leap:'jumps over pieces',stay:'cannot move',
   shoot:s=>'shoots '+DS.en.dirs[s.dirs]+' up to '+s.range+' squares'+(s.limit?' ('+s.limit+' times)':''),swap:'swaps places with an ally',blast:'blows up neighbours when capturing',
   freeze:f=>'freezes an enemy for '+f.turns+' turn(s) (range '+f.range+')'+(f.limit?', '+f.limit+' times':''),conv:f=>'turns an enemy into an ally (range '+f.range+')'+(f.limit?', '+f.limit+' times':''),
   rev:f=>'revives the last fallen piece next to it'+(f.limit?' ('+f.limit+' times)':''),arm:n=>'armor: survives '+n+' capture(s)',extra:'moves again after a capture',noc:a=>'cannot capture: '+a,pawnStd:'moves like a normal pawn',
@@ -554,6 +613,21 @@ const DS={
   imm:a=>'invulnerable: '+a,noimm:'nothing is invulnerable',shield:(a,b)=>a+' is protected by a neighbouring '+b,noshield:'no neighbour protection',
   w_stuck:a=>'⚠ the '+a+' will no longer be able to move',w_nocap:'⚠ the pawn will no longer be able to capture',w_nostart:'⚠ White will have no moves at all: the game ends at once',w_end:'⚠ the game will end immediately after this rule'}};
 const pnames=a=>a.map(x=>NM[x]).join(', ');
+const FEAT={ru:{move:'ход',leap:'перепрыгивание',blinkc:'телепорт',shoot:'стрельба',swap:'обмен',blast:'взрыв',freeze:'заморозка',convert:'обращение',revive:'воскрешение',armor:'броня',extra:'доп. ход',nocheck:'отмена шаха',pawnRange:'дальность пешки',pawnBack:'пешка назад',pawnCapture:'взятие пешкой',immune:'неуязвимость',shield:'защита соседом'},
+ en:{move:'movement',leap:'jumping over pieces',blinkc:'teleport',shoot:'shooting',swap:'swap',blast:'explosion',freeze:'freeze',convert:'conversion',revive:'revival',armor:'armor',extra:'extra move',nocheck:'no check',pawnRange:'pawn range',pawnBack:'pawn backward',pawnCapture:'pawn capture',immune:'invulnerability',shield:'neighbour protection'}};
+function noteText(n){const ru=lang==='ru',x=n.x&&'KQRBNP'.includes(n.x)?NM[n.x]:'',v=n.v;
+ switch(n.k){case 'win':return ru?'победа всегда за королём':'the king always decides the win';
+  case 'immuneK':return ru?'король не может быть неуязвимым':'the king cannot be invulnerable';
+  case 'pawnRange':return ru?'пешка: дальность урезана до '+v+' кл.':'pawn range cut to '+v;
+  case 'shoot':return ru?x+': стрельба урезана до '+v+' кл.':x+': shooting range cut to '+v;
+  case 'blink':return ru?x+': телепорт только на '+v+' кл.':x+': teleport only '+v+' squares';
+  case 'freeze':return ru?x+': заморозка 1 ход, дальность до 2':x+': freeze 1 turn, range up to 2';
+  case 'convert':return ru?x+': обращать можно только пешки, коней и слонов, дальность 1':x+': only pawns, knights and bishops can be converted, range 1';
+  case 'armor':return ru?x+': броня урезана до '+v:x+': armor cut to '+v;
+  case 'mobility':return ru?x+': ход урезан до силы ладьи':x+': movement cut to rook strength';
+  case 'trim':return (ru?'убрано ради баланса: ':'removed for balance: ')+(FEAT[lang][v]||v)+(x?' ('+x+')':'')}
+ return ''}
+const PROB={ru:{exposed:'⛔ нельзя: правило сразу создало бы шах королю соперника',trapped:'⛔ нельзя: у тебя не осталось бы ни одного хода'},en:{exposed:'⛔ not allowed: the rule would put the enemy king in check at once',trapped:'⛔ not allowed: you would be left without any move'}};
 const dirSet=v=>JSON.stringify(v.map(q=>q.join(',')).sort());
 function dirName(sl){if(typeof sl==='string')return sl;if(!Array.isArray(sl)||!sl.length)return null;const k=dirSet(sl);for(const n of['orth','diag','all'])if(dirSet(E.vec(n))===k)return n;return null}
 function pieceLine(X,d){const D=DS[lang],P=[];
@@ -562,7 +636,7 @@ function pieceLine(X,d){const D=DS[lang],P=[];
  else{const sl=d.slide,jm=d.jumps,has=(typeof sl==='string')||(Array.isArray(sl)&&sl.length);
   const dn=dirName(sl);if(dn)P.push(D.slide(dn,d.max));else if(Array.isArray(sl)&&sl.length)P.push(D.slideV(d.max));
   const jn=Array.isArray(jm)&&jm.length&&dirSet(jm)===dirSet(E.vec('knight'))?'knight':jm;
-  if(jn==='knight')P.push(D.kn);else if(jm==='any')P.push(D.any(d.jumpLimit));else if(Array.isArray(jm)&&jm.length)P.push(D.jv(d.jumpLimit));
+  if(jn==='knight')P.push(D.kn);else if(jm==='any')P.push(D.any(d.jumpLimit,d.jumpRange));else if(Array.isArray(jm)&&jm.length)P.push(D.jv(d.jumpLimit));
   if(d.leap&&has)P.push(D.leap);
   if(!has&&!jm)P.push(D.stay)}
  if(d.shoot)P.push(D.shoot(d.shoot));if(d.swap)P.push(D.swap);if(d.blast)P.push(D.blast);
@@ -593,22 +667,22 @@ function warnRules(a,b,S,who){const D=DS[lang],W=[];a=E.sanitize(a);b=E.sanitize
  for(const X of 'KQRBNP'){if(probeMoves(b,X)===0&&probeMoves(a,X)>0)W.push(D.w_stuck(NM[X]))}
  const canCap=cf=>{const {T,at}=sandbox(cf,'P');T.bd[5][3]={t:'N',c:'b'};T.bd[5][5]={t:'N',c:'b'};return E.movesOf(T,at[0],at[1]).some(m=>m[0]===5&&(m[1]===3||m[1]===5))};
  if(!canCap(b)&&canCap(a)&&!W.includes(D.w_stuck(NM.P)))W.push(D.w_nocap);
- try{const T=JSON.parse(JSON.stringify(S));E.setRules(T,b,who);if(T.over)W.push(D.w_end)}catch(e){}
- try{const T=E.newGame(b);if(T.over&&!W.includes(D.w_end))W.push(D.w_nostart)}catch(e){}
  return W}
 function miniBoard(cfg,X){const A=sandbox(cfg,X),B=sandbox(cfg,X,true),cell={},at=A.at;
  for(const m of E.movesOf(A.T,at[0],at[1])){if(m[2]==='w')continue;const k=m[0]+','+m[1];cell[k]=m[2]==='r'?'rv':'mv'}
  for(const m of E.movesOf(B.T,at[0],at[1])){const k=m[0]+','+m[1];if(['s','f','c'].includes(m[2]))cell[k]='ab';else if(X==='P'&&!m[2]&&m[1]!==at[1])cell[k]='ab'}
  let h='';for(let r=0;r<8;r++)for(let c=0;c<8;c++){const k=r+','+c,isP=r===at[0]&&c===at[1];h+='<div class="dc '+((r+c)%2?'d':'l')+(cell[k]?' '+cell[k]:'')+'">'+(isP?'<span class="pc">'+psvg('w'+X)+'</span>':'')+'</div>'}
  return '<div class="pvm"><div class="dmb">'+h+'</div><div class="pvn">'+NM[X]+'</div></div>'}
-function previewRules(a,b,lines,bad,warns,changed,commit){
+function previewRules(a,b,lines,bad,warns,changed,commit,x){x=x||{notes:[],probs:[]};
  $('pvt').textContent=t('pvt');$('pvy').textContent=t('pvy');$('pvn').textContent=t('pvn');
- $('pvl').innerHTML=lines.map(x=>'<li>'+x.replace(/[<>&]/g,'')+'</li>').join('');
- $('pvw').innerHTML=warns.map(x=>'<div>'+x.replace(/[<>&]/g,'')+'</div>').join('');
+ $('pvl').innerHTML=lines.map(l=>'<li>'+l.replace(/[<>&]/g,'')+'</li>').join('');
+ const nt=x.notes.map(noteText).filter(Boolean);
+ $('pvx').innerHTML=(nt.length?'<div class="pvbal">'+nt.map(l=>'<div>⚖ '+l.replace(/[<>&]/g,'')+'</div>').join('')+'</div>':'')+'<div class="pvk">'+f('pvcost',{c:x.cost==null?'?':x.cost,b:x.budget||4})+' · '+t('pvdur')+'</div>';
+ $('pvw').innerHTML=x.probs.map(p=>'<div>'+PROB[lang][p]+'</div>').concat(warns.map(l=>'<div>'+l.replace(/[<>&]/g,'')+'</div>')).join('');
  const bs=changed.slice(0,3).map(X=>miniBoard(b,X)).join('');
  $('pvb').innerHTML=bs?'<div class="pvk">'+t('pvnote')+'</div><div class="pvr">'+bs+'</div><div class="pvk">'+t('pvlg')+'</div>':'';
  const close=()=>$('pv').classList.add('hid');
- $('pvy').onclick=()=>{close();commit()};$('pvn').onclick=close;$('pv').classList.remove('hid')}
+ $('pvy').disabled=x.probs.length>0;$('pvy').onclick=()=>{close();commit()};$('pvn').onclick=close;$('pv').classList.remove('hid')}
 $('nlb').onclick=async()=>{
  const raw=$('nlt').value.trim();if(!raw)return;
  const who=mode==='online'?me:($('bot').checked?'w':S.turn);
@@ -629,20 +703,21 @@ $('nlb').onclick=async()=>{
  if(rst&&!c)c=JSON.parse(JSON.stringify(STD));
  bt.disabled=false;bt.textContent=lab;if(aiErr)$('err').textContent=t('aifail')+aiErr;
  // the description comes from the CONFIG itself (the engine's truth), not from the language model's own words
- const cc=c?E.sanitize(c):null,det=cc?describeRules(S.cfg,cc):{lines:[],changed:[]};
- if(!ok.length&&!det.lines.length||!cc||!det.lines.length){$('sum').textContent=t('none')+(bad.length?'\n'+t('bad')+' '+bad.join(' | '):'');return}
+ const cc0=c?E.sanitize(c):null,base0=S.spell?S.spell.base:S.cfg,bal=cc0?E.balance(base0,cc0):null,cc=bal?bal.cfg:null;
+ // the description comes from the CONFIG itself (the engine's truth), after the engine has balanced it
+ const det=cc?describeRules(base0,cc):{lines:[],changed:[]};
+ if(!cc||!det.lines.length){$('sum').textContent=t('none')+(bal&&bal.notes.length?'\n⚖ '+bal.notes.map(noteText).filter(Boolean).join('; '):'')+(bad.length?'\n'+t('bad')+' '+bad.join(' | '):'');return}
  if(!E.canChange(S,who)){draw();return}
- const lines=rst?[t('rst'),...det.lines]:det.lines,warns=warnRules(S.cfg,cc,S,who);
+ const lines=det.lines,warns=warnRules(base0,cc,S,who),probs=E.validateSpell(S,cc,who);
  const commit=()=>{
   if(!E.canChange(S,who)){draw();return}
-  const setup=S.nm.w+S.nm.b===0;
-  sumTxt=(ai?'✨ ':'')+t('okh')+'\n• '+lines.join('\n• ');if(!setup)sumTxt=cn(who)+': '+sumTxt;
+  sumTxt=(ai?'✨ ':'')+cn(who)+': '+t('okh')+'\n• '+lines.join('\n• ')+'\n⏱ '+t('spelldur');
   const shown=sumTxt+(bad.length?'\n\n'+t('skip')+'\n• '+bad.join('\n• '):'');
   $('sum').textContent=shown;$('nlt').value='';
   if(mode==='online')send({t:'rules',cfg:cc,sum:sumTxt});
-  else if(setup){cfg=cc;sum0=shown;newLocal();S.lc[who]=S.nm[who];draw()}else{E.setRules(S,cc,who);draw()}};
- previewRules(S.cfg,cc,lines,bad,warns,det.changed,commit)};
-$('rs').onclick=()=>{if(mode==='online')send({t:'rematch'});else{$('sum').textContent=sum0;newLocal()}};
+  else{const r=E.setRules(S,cc,who);if(!r.ok){$('err').textContent=t('spellbad');return}draw()}};
+ previewRules(base0,cc,lines,bad,warns,det.changed,commit,{notes:bal.notes,cost:bal.cost,budget:bal.budget,probs})};
+$('rs').onclick=()=>{const go=()=>{if(mode==='online')send({t:'rematch'});else{$('sum').textContent=sum0;newLocal()}};if(S.over||S.nm.w+S.nm.b===0)go();else confirmAct('rs',mode==='online'?'cf_rs_mo':'cf_rs_m',go)};
 function zoomIn(fn){
  const m=$('s-menu');if(m.classList.contains('zoom'))return;
  if(matchMedia('(prefers-reduced-motion:reduce)').matches||m.classList.contains('hid')){fn();return}
@@ -652,8 +727,9 @@ function zoomIn(fn){
  document.documentElement.classList.add('zooming');demoStop();m.classList.add('zoom');
  setTimeout(()=>{fn();m.classList.remove('zoom');m.style.transformOrigin='';document.documentElement.classList.remove('zooming')},620)}
 $('bLoc').onclick=()=>{if(mode==='online'){send({t:'leave'});leave()}zoomIn(()=>{cfg=JSON.parse(JSON.stringify(STD));sum0='';$('sum').textContent='';newLocal();show('game')})};
-$('rg').onclick=()=>{if(S.over||S.nm.w+S.nm.b===0)return;if(mode==='online')send({t:'resign'});else{const who=$('bot').checked?'w':S.turn;E.finish(S,who==='w'?'b':'w','resign');draw()}};
-$('dw').onclick=()=>{if(S.over||S.nm.w+S.nm.b===0)return;if(mode==='online')send({t:'draw'});else{E.finish(S,null,'agreed');draw()}};
+function confirmAct(k,msgKey,fn){askBox(t('cf_'+k),[{cls:'btn',txt:t('pvn'),fn:()=>{}},{cls:'btn dng',txt:t('cf_'+k+'_y'),fn}],t(msgKey))}
+$('rg').onclick=()=>{if(S.over||S.nm.w+S.nm.b===0)return;confirmAct('rg','cf_rg_m',()=>{if(S.over)return;if(mode==='online')send({t:'resign'});else{const who=$('bot').checked?'w':S.turn;E.finish(S,who==='w'?'b':'w','resign');draw()}})};
+$('dw').onclick=()=>{if(S.over||S.nm.w+S.nm.b===0)return;confirmAct('dw',mode==='online'?'cf_dw_mo':'cf_dw_m',()=>{if(S.over)return;if(mode==='online')send({t:'draw'});else{E.finish(S,null,'agreed');draw()}})};
 $('bBack').onclick=()=>{if(mode==='online'){send({t:'leave'});leave()}show('menu')};
 $('rc').onclick=()=>{try{navigator.clipboard.writeText(room.code);$('rc').textContent='✓';setTimeout(draw,900)}catch(e){}};
 $('bCr').onclick=()=>{if(mode==='online')leave();$('err').textContent='';connect({t:'create',cfg,sum:sum0})};
@@ -671,7 +747,7 @@ function setLang(l){lang=l;try{localStorage.setItem('chessLang',l)}catch(e){}app
 $('lg').onclick=()=>setLang(lang==='ru'?'en':'ru');
 
 // ===== bot brain: 2 plies (my move, then the opponent's best reply); material + position =====
-function fclone(S){const T={...S};T.bd=S.bd.map(r=>r.map(p=>p?{...p}:null));T.nm={...S.nm};T.lc={...S.lc};T.jc={...S.jc};T.cap={w:[...((S.cap||{}).w||[])],b:[...((S.cap||{}).b||[])]};T.rep={};return T}
+function fclone(S){const T={...S};T.bd=S.bd.map(r=>r.map(p=>p?{...p}:null));T.nm={...S.nm};T.lc={...S.lc};T.jc={...S.jc};T.spell=S.spell?{...S.spell}:null;T.cap={w:[...((S.cap||{}).w||[])],b:[...((S.cap||{}).b||[])]};T.rep={};return T}
 function evalB(T,me){let s=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=T.bd[r][c];if(!p)continue;let v=V[p.t]||0;
   if(p.t==='P')v+=(p.c==='w'?6-r:r-1)*.06;
   else if(p.t==='N'||p.t==='B')v+=(7-Math.abs(2*r-7)-Math.abs(2*c-7))/14*.3;
@@ -737,11 +813,11 @@ function demoStep(){
  if(D.turn==='w'&&dQ.length&&D.nm.w>=dNext&&E.canChange(D,'w')){
   const r=DEMO_RULES[dQ[0]];dTyping=true;
   demoType(r,()=>{dTyping=false;if(!D)return;dQ.shift();const c=JSON.parse(JSON.stringify(D.cfg));r.p(c);
-   try{E.setRules(D,E.sanitize(c),'w');dRule=r;dNext=D.nm.w+4}catch(e){}demoCap()});
+   try{const rr=E.setRules(D,E.sanitize(c),'w');if(rr.ok){dRule=r;dNext=D.nm.w+4}}catch(e){}demoCap()});
   return r[lang].length*50+550+1300}
  const m=brain(D,D.turn,{budget:90,noise:.35});
  if(!m){D.over=true;return 2500}
- E.play(D,m[0],m[1],m[2],m[3],m[4]);dMoves++;demoDraw();
+ E.play(D,m[0],m[1],m[2],m[3],m[4]);dMoves++;demoDraw();if(dRule&&!D.spell){dRule=null;demoCap()}
  return D.over?3200:850+Math.random()*350}
 function demoOn(){return !$('s-menu').classList.contains('hid')&&!document.hidden}
 function demoTick(){dT=0;if(!demoOn()||dTyping)return;let d=1000;try{d=demoStep()}catch(e){D=null}dT=setTimeout(demoTick,d)}
